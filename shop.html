@@ -19,17 +19,29 @@
         Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
       color: white;
       overflow-x: hidden;
+      background: #0d1117; /* GitHub-like dark background */
     }
 
-    /* Fixed starry background */
+    /* Starry background container */
     #starry-background {
       position: fixed;
-      top: 0;
+      bottom: 0;
       left: 0;
       width: 100%;
       height: 100%;
       z-index: -1;
-      background: #0b0c2a;
+      overflow: hidden;
+    }
+
+    /* Gradient overlay for stars */
+    .stars-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 60%;
+      background: linear-gradient(to top, rgba(13,17,23,1) 0%, rgba(13,17,23,0) 100%);
+      z-index: 1;
     }
 
     /* Main content container */
@@ -38,7 +50,7 @@
       margin: 0 auto;
       padding: 1rem;
       position: relative;
-      z-index: 1;
+      z-index: 2;
     }
 
     /* Header */
@@ -192,16 +204,13 @@
       }
     }
   </style>
-  <script>
-  if (new URLSearchParams(window.location.search).has('bypass-cache')) {
-    window.location.href = window.location.pathname + '?journal=' + 
-      new URLSearchParams(window.location.search).get('journal');
-  }
-</script>
 </head>
 <body>
   <!-- Starry background canvas -->
-  <canvas id="starry-background"></canvas>
+  <div id="starry-background">
+    <canvas id="stars-canvas"></canvas>
+    <div class="stars-overlay"></div>
+  </div>
   
   <!-- Main content -->
   <div class="content">
@@ -248,20 +257,23 @@
     const tg = window.Telegram.WebApp;
     tg.expand();
     
-    // Starry background animation
-    const canvas = document.getElementById('starry-background');
+    // Enhanced starry background animation
+    const canvas = document.getElementById('stars-canvas');
     const ctx = canvas.getContext('2d');
     let stars = [];
-    const starCount = window.innerWidth < 768 ? 100 : 200;
+    const starCount = 200;
+    const focalLength = canvas.width;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
     function initStars() {
       stars = [];
       for (let i = 0; i < starCount; i++) {
         stars.push({
           x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height,
-          radius: Math.random() * 1.5 + 0.5,
-          alpha: Math.random() * 0.5 + 0.5,
+          y: Math.random() * canvas.height * 1.5, // Больше звезд внизу
+          z: Math.random() * canvas.width,
+          size: Math.random() * 1.5 + 0.5,
           speed: Math.random() * 0.02 + 0.005
         });
       }
@@ -275,18 +287,32 @@
 
     function drawStars() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#0b0c2a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       stars.forEach(star => {
+        // 3D эффект
+        const scale = focalLength / (focalLength + star.z);
+        const x = (star.x - centerX) * scale + centerX;
+        const y = (star.y - centerY) * scale + centerY;
+        
+        // Рисуем звезду с бликом
+        const radius = star.size * scale;
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
         ctx.beginPath();
-        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${star.alpha})`;
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
         ctx.fill();
         
-        // Twinkling effect
-        star.alpha += (Math.random() - 0.5) * 0.05;
-        star.alpha = Math.max(0.3, Math.min(1, star.alpha));
+        // Движение звезд
+        star.z -= star.speed * 50;
+        if (star.z <= 0) {
+          star.z = canvas.width;
+          star.x = Math.random() * canvas.width;
+          star.y = Math.random() * canvas.height * 1.5;
+        }
       });
     }
 
@@ -304,6 +330,11 @@
     
     // Telegram WebApp ready event
     tg.ready();
+
+    // Cache busting
+    if (new URLSearchParams(window.location.search).has('bypass-cache')) {
+      window.location.href = window.location.pathname + '?' + new URLSearchParams(window.location.search).toString().replace('bypass-cache', 'nocache');
+    }
   </script>
 </body>
 </html>
