@@ -156,9 +156,9 @@
     // Загрузка данных журнала
     function loadJournal() {
         const params = new URLSearchParams(window.location.search);
-        const imageBase64 = params.get('image');
-
-        // Заполняем данные
+        const journalId = params.get('journal');
+        
+        // Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
             decodeURIComponent(params.get('title') || "Название не указано");
         document.getElementById('journal-year').textContent = 
@@ -166,11 +166,12 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // Отображаем фото, если оно есть
+        // Проверяем localStorage на наличие изображения
         const imgElement = document.getElementById('journal-image');
-        if (imageBase64) {
-            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
-            imgElement.style.display = 'block';
+        const cachedImage = localStorage.getItem(`journal_${journalId}_image`);
+        
+        if (cachedImage) {
+            imgElement.src = cachedImage;
         } else {
             imgElement.style.display = 'none';
         }
