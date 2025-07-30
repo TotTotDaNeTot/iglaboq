@@ -155,25 +155,22 @@
     
     // Загрузка данных журнала
     function loadJournal() {
-        const imgElement = document.getElementById('journal-image');
-        const base64Image = urlParams.get('image_base64');
-        
-        // Заполняем текстовые данные
-        document.getElementById('journal-title').textContent = 
-            decodeURIComponent(urlParams.get('title') || "Название не указано");
-        document.getElementById('journal-year').textContent = 
-            `Год: ${urlParams.get('year') || "—"}`;
-        document.getElementById('journal-price').textContent = 
-            `Цена: ${urlParams.get('price') || "0"}₽`;
+        const params = new URLSearchParams(window.location.search);
+        const imageBase64 = params.get('image');
 
-        // Обработка фото
-        if (base64Image) {
-            imgElement.src = `data:image/jpeg;base64,${base64Image}`;
+        // Заполняем данные
+        document.getElementById('journal-title').textContent = 
+            decodeURIComponent(params.get('title') || "Название не указано");
+        document.getElementById('journal-year').textContent = 
+            `Год: ${params.get('year') || "—"}`;
+        document.getElementById('journal-price').textContent = 
+            `Цена: ${params.get('price') || "0"}₽`;
+
+        // Отображаем фото, если оно есть
+        const imgElement = document.getElementById('journal-image');
+        if (imageBase64) {
+            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
             imgElement.style.display = 'block';
-            imgElement.onerror = () => {
-                imgElement.style.display = 'none';
-                console.error("Ошибка загрузки изображения");
-            };
         } else {
             imgElement.style.display = 'none';
         }
