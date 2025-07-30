@@ -6,7 +6,6 @@
   <title>GitHub Inspired WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    /* Reset and base styles */
     * {
       margin: 0;
       padding: 0;
@@ -18,42 +17,29 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
         Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
       color: white;
+      background: #0d1117;
       overflow-x: hidden;
-      background: #0d1117; /* GitHub-like dark background */
     }
 
-    /* Starry background container */
     #starry-background {
       position: fixed;
-      bottom: 0;
+      top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       z-index: -1;
-      overflow: hidden;
     }
 
-    /* Gradient overlay for stars */
-    .stars-overlay {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 60%;
-      background: linear-gradient(to top, rgba(13,17,23,1) 0%, rgba(13,17,23,0) 100%);
-      z-index: 1;
-    }
-
-    /* Main content container */
     .content {
       max-width: 100%;
       margin: 0 auto;
       padding: 1rem;
       position: relative;
-      z-index: 2;
+      z-index: 1;
+      min-height: 100vh;
     }
 
-    /* Header */
+    /* Остальные стили остаются без изменений */
     header {
       display: flex;
       justify-content: space-between;
@@ -83,7 +69,6 @@
       cursor: pointer;
     }
 
-    /* Main heading */
     h1 {
       font-size: 1.8rem;
       font-weight: 700;
@@ -92,7 +77,6 @@
       text-align: center;
     }
 
-    /* Subheading */
     p.subtitle {
       font-size: 1rem;
       text-align: center;
@@ -100,7 +84,6 @@
       opacity: 0.8;
     }
 
-    /* Form */
     form {
       background: rgba(255, 255, 255, 0.1);
       border-radius: 10px;
@@ -137,7 +120,6 @@
       cursor: pointer;
     }
 
-    /* Secondary button */
     button.secondary-btn {
       background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.5);
@@ -151,7 +133,6 @@
       margin-bottom: 1.5rem;
     }
 
-    /* Code example section */
     .code-section {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 10px;
@@ -180,39 +161,17 @@
       color: #ce9178;
     }
 
-    /* Footer */
     footer {
       text-align: center;
       padding: 1rem 0;
       font-size: 0.8rem;
       opacity: 0.7;
     }
-
-    /* Desktop styles */
-    @media (min-width: 768px) {
-      .content {
-        max-width: 600px;
-        padding: 2rem 1rem;
-      }
-      
-      h1 {
-        font-size: 2.2rem;
-      }
-      
-      header {
-        margin-bottom: 2rem;
-      }
-    }
   </style>
 </head>
 <body>
-  <!-- Starry background canvas -->
-  <div id="starry-background">
-    <canvas id="stars-canvas"></canvas>
-    <div class="stars-overlay"></div>
-  </div>
+  <canvas id="starry-background"></canvas>
   
-  <!-- Main content -->
   <div class="content">
     <header>
       <div class="menu-icon">&#9776;</div>
@@ -253,28 +212,29 @@
   </div>
 
   <script>
-    // Initialize Telegram WebApp
+    // Инициализация Telegram WebApp
     const tg = window.Telegram.WebApp;
-    tg.expand();
-    
-    // Enhanced starry background animation
-    const canvas = document.getElementById('stars-canvas');
+    if (tg.platform !== 'unknown') {
+      tg.expand();
+      tg.enableClosingConfirmation();
+    }
+
+    // Улучшенное звездное небо
+    const canvas = document.getElementById('starry-background');
     const ctx = canvas.getContext('2d');
     let stars = [];
-    const starCount = 200;
-    const focalLength = canvas.width;
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    const starCount = 300;
 
     function initStars() {
       stars = [];
       for (let i = 0; i < starCount; i++) {
         stars.push({
           x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height * 1.5, // Больше звезд внизу
-          z: Math.random() * canvas.width,
+          y: Math.random() * canvas.height * 0.6 + canvas.height * 0.4, // 60% звезд в нижней части
+          z: Math.random() * 1000,
           size: Math.random() * 1.5 + 0.5,
-          speed: Math.random() * 0.02 + 0.005
+          speed: Math.random() * 0.02 + 0.01,
+          alpha: Math.random() * 0.7 + 0.3
         });
       }
     }
@@ -286,19 +246,21 @@
     }
 
     function drawStars() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       stars.forEach(star => {
-        // 3D эффект
-        const scale = focalLength / (focalLength + star.z);
-        const x = (star.x - centerX) * scale + centerX;
-        const y = (star.y - centerY) * scale + centerY;
+        // Параллакс-эффект
+        const x = star.x;
+        const y = star.y + (star.z / 100);
+        const radius = star.size * (1 - star.z / 2000);
         
-        // Рисуем звезду с бликом
-        const radius = star.size * scale;
-        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
+        // Градиент для звезд
+        const gradient = ctx.createRadialGradient(
+          x, y, 0, 
+          x, y, radius
+        );
+        gradient.addColorStop(0, `rgba(255, 255, 255, ${star.alpha})`);
         gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
         
         ctx.beginPath();
@@ -306,13 +268,17 @@
         ctx.fillStyle = gradient;
         ctx.fill();
         
-        // Движение звезд
+        // Анимация звезд
         star.z -= star.speed * 50;
         if (star.z <= 0) {
-          star.z = canvas.width;
+          star.z = 1000;
           star.x = Math.random() * canvas.width;
-          star.y = Math.random() * canvas.height * 1.5;
+          star.y = Math.random() * canvas.height * 0.6 + canvas.height * 0.4;
         }
+        
+        // Мерцание
+        star.alpha += (Math.random() - 0.5) * 0.05;
+        star.alpha = Math.max(0.3, Math.min(1, star.alpha));
       });
     }
 
@@ -321,20 +287,11 @@
       requestAnimationFrame(animate);
     }
 
-    // Handle resize
     window.addEventListener('resize', resizeCanvas);
     
-    // Initialize and start animation
+    // Инициализация
     resizeCanvas();
     animate();
-    
-    // Telegram WebApp ready event
-    tg.ready();
-
-    // Cache busting
-    if (new URLSearchParams(window.location.search).has('bypass-cache')) {
-      window.location.href = window.location.pathname + '?' + new URLSearchParams(window.location.search).toString().replace('bypass-cache', 'nocache');
-    }
   </script>
 </body>
 </html>
