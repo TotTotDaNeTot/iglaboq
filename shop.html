@@ -155,36 +155,33 @@
     
     // Загрузка данных журнала
     function loadJournal() {
-        try {
-            // 1. Получаем данные из WebApp
-            const webAppData = Telegram.WebApp.initDataUnsafe?.web_app_data;
-            if (!webAppData) return;
+        const params = new URLSearchParams(window.location.search);
+        const imgElement = document.getElementById('journal-image');
+        
+        // 1. Заполняем текстовые данные
+        document.getElementById('journal-title').textContent = 
+            decodeURIComponent(params.get('title') || "Название не указано");
+        document.getElementById('journal-year').textContent = 
+            `Год: ${params.get('year') || "—"}`;
+        document.getElementById('journal-price').textContent = 
+            `Цена: ${params.get('price') || "0"}₽`;
 
-            const data = JSON.parse(webAppData);
-            const imgElement = document.getElementById('journal-image');
-
-            // 2. Заполняем текстовые данные
-            document.getElementById('journal-title').textContent = data.title;
-            document.getElementById('journal-year').textContent = `Год: ${data.year}`;
-            document.getElementById('journal-price').textContent = `Цена: ${data.price}₽`;
-
-            // 3. Отображаем фото если есть
-            if (data.image_base64) {
-                imgElement.src = `data:image/jpeg;base64,${data.image_base64}`;
-                imgElement.style.display = 'block';
-                imgElement.onerror = () => imgElement.style.display = 'none';
-            } else {
+        // 2. Отображаем фото если есть
+        const imageBase64 = params.get('image_base64');
+        if (imageBase64) {
+            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
+            imgElement.style.display = 'block';
+            imgElement.onerror = () => {
                 imgElement.style.display = 'none';
-            }
-
-        } catch (e) {
-            console.error("Ошибка загрузки:", e);
+                console.error("Ошибка загрузки фото");
+            };
+        } else {
+            imgElement.style.display = 'none';
         }
     }
 
     // Инициализация
-    Telegram.WebApp.ready();
-    loadJournal();
+    window.addEventListener('load', loadJournal);
 
     // Создание звездного неба
     function createStars() {
