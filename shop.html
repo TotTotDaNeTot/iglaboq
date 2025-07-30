@@ -155,27 +155,19 @@
     
     // Загрузка данных журнала
     function loadJournal() {
-        const params = new URLSearchParams(window.location.search);
-        const imgElement = document.getElementById('journal-image');
-        
-        // 1. Заполняем текстовые данные
-        document.getElementById('journal-title').textContent = 
-            decodeURIComponent(params.get('title') || "Название не указано");
-        document.getElementById('journal-year').textContent = 
-            `Год: ${params.get('year') || "—"}`;
-        document.getElementById('journal-price').textContent = 
-            `Цена: ${params.get('price') || "0"}₽`;
-
-        // 2. Загружаем фото из base64
-        const imageBase64 = params.get('image_base64');
-        if (imageBase64) {
-            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
-            imgElement.onerror = () => {
-                imgElement.style.display = 'none';
-                console.error("Ошибка загрузки изображения");
-            };
-        } else {
-            imgElement.style.display = 'none';
+        // Получаем данные из WebApp
+        const webAppData = Telegram.WebApp.initDataUnsafe?.web_app_data;
+        if (webAppData) {
+            const data = JSON.parse(webAppData);
+            
+            document.getElementById('journal-title').textContent = data.title;
+            document.getElementById('journal-year').textContent = `Год: ${data.year}`;
+            document.getElementById('journal-price').textContent = `Цена: ${data.price}₽`;
+            
+            if (data.image) {
+                document.getElementById('journal-image').src = 
+                    `data:image/jpeg;base64,${data.image}`;
+            }
         }
     }
 
