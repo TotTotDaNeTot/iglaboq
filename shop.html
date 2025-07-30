@@ -159,7 +159,7 @@
         const journalId = params.get('journal');
         const imgElement = document.getElementById('journal-image');
         
-        // 1. Заполняем текстовые данные
+        // Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
             decodeURIComponent(params.get('title') || "Название не указано");
         document.getElementById('journal-year').textContent = 
@@ -167,7 +167,7 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // 2. Загружаем фото
+        // Загружаем фото
         try {
             const response = await fetch(`/get_journal_photo?journal_id=${journalId}`);
             const data = await response.json();
@@ -177,6 +177,7 @@
                 imgElement.style.display = 'block';
             } else {
                 imgElement.style.display = 'none';
+                console.log("Фото не найдено для журнала:", journalId);
             }
         } catch (e) {
             console.error("Ошибка загрузки фото:", e);
@@ -184,7 +185,7 @@
         }
     }
 
-    // Запускаем при загрузке
+    // Инициализация при загрузке
     Telegram.WebApp.ready();
     loadJournal();
 
