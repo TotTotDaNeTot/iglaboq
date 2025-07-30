@@ -60,6 +60,7 @@
       border-radius: 12px;
       margin-bottom: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      display: none; /* Скрываем по умолчанию */
     }
 
     /* Остальные стили */
@@ -88,26 +89,27 @@
       margin-bottom: 10px;
     }
 
-    .code-section {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 15px;
-      font-family: 'Courier New', monospace;
-      overflow-x: auto;
+    .journal-meta {
+      margin-bottom: 5px;
     }
 
-    .code-keyword {
-      color: #569cd6;
-    }
-
-    .sign-in-btn {
-      border: 1px solid white;
-      border-radius: 6px;
-      padding: 6px 12px;
-      background: transparent;
+    .buy-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: #2ea44f;
       color: white;
-      font-size: 0.9rem;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: bold;
+      margin-top: 20px;
       cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .buy-btn:hover {
+      background: #2c974b;
     }
   </style>
 </head>
@@ -118,76 +120,91 @@
   <!-- Основной контент -->
   <div class="content">
     <header>
-      <div class="logo">GitHub</div>
-      <button class="sign-in-btn">Sign in</button>
+      <div class="logo">Журнал "Игла"</div>
     </header>
 
-    <!-- Вместо заголовка - изображение журнала -->
+    <!-- Изображение журнала -->
     <img id="journal-image" class="journal-image" src="" alt="Обложка журнала">
 
     <!-- Блок с информацией о журнале -->
     <div class="journal-info">
-      <div id="journal-title" class="journal-title"></div>
-      <div id="journal-year"></div>
-      <div id="journal-price"></div>
-    </div>
-
-    <!-- Пример кода (оставляем как было) -->
-    <div class="code-section">
-      <pre><span class="code-keyword">class</span> if (GeomKey.isBeam) {
-    player.setVelocity(&: 0, y: 289);
-} <span class="code-keyword">else</span> {
-    player.setVelocity(&: 0, y: 0);
-}</pre>
+      <h1 id="journal-title" class="journal-title"></h1>
+      <div id="journal-year" class="journal-meta"></div>
+      <div id="journal-price" class="journal-meta"></div>
+      
+      <button id="buy-btn" class="buy-btn">Купить сейчас</button>
     </div>
   </div>
 
   <script>
     // Инициализация Telegram WebApp
-    if (window.Telegram?.WebApp?.initData) {
+    if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
       Telegram.WebApp.enableClosingConfirmation();
+      
+      // Настройка основной кнопки
+      Telegram.WebApp.MainButton
+        .setText("Купить")
+        .show()
+        .onClick(() => {
+          Telegram.WebApp.sendData(JSON.stringify({
+            action: "purchase",
+            journalId: new URLSearchParams(window.location.search).get('journal')
+          }));
+        });
     }
 
     // Получаем параметры из URL
     const urlParams = new URLSearchParams(window.location.search);
     const journalId = urlParams.get('journal');
     
-    // Загрузка данных журнала
-    async function loadJournal() {
-        const params = new URLSearchParams(window.location.search);
-        const journalId = params.get('journal');
-        const imgElement = document.getElementById('journal-image');
+    // Элементы DOM
+    const imgElement = document.getElementById('journal-image');
+    const titleElement = document.getElementById('journal-title');
+    const yearElement = document.getElementById('journal-year');
+    const priceElement = document.getElementById('journal-price');
+    const buyBtn = document.getElementById('buy-btn');
+
+    // Заполняем текстовые данные
+    titleElement.textContent = decodeURIComponent(urlParams.get('title') || "Название не указано");
+    yearElement.textContent = `Год выпуска: ${urlParams.get('year') || "—"}`;
+    priceElement.textContent = `Цена: ${urlParams.get('price') || "0"}₽`;
+
+    // Обработчик кнопки покупки
+    buyBtn.addEventListener('click', () => {
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.sendData(JSON.stringify({
+          action: "purchase",
+          journalId: journalId
+        }));
+      } else {
+        alert(`Покупка журнала ID: ${journalId}`);
+      }
+    });
+
+    // Загрузка фото журнала
+    async function loadJournalPhoto() {
+      if (!journalId) return;
+      
+      try {
+        const response = await fetch(`http://localhost:8000/get_journal_photo?journal_id=${journalId}`);
         
-        // Заполняем текстовые данные
-        document.getElementById('journal-title').textContent = 
-            decodeURIComponent(params.get('title') || "Название не указано");
-        document.getElementById('journal-year').textContent = 
-            `Год: ${params.get('year') || "—"}`;
-        document.getElementById('journal-price').textContent = 
-            `Цена: ${params.get('price') || "0"}₽`;
-
-        // Загружаем фото
-        try {
-            const response = await fetch(`/get_journal_photo?journal_id=${journalId}`);
-            const data = await response.json();
-            
-            if (data.image) {
-                imgElement.src = `data:image/jpeg;base64,${data.image}`;
-                imgElement.style.display = 'block';
-            } else {
-                imgElement.style.display = 'none';
-                console.log("Фото не найдено для журнала:", journalId);
-            }
-        } catch (e) {
-            console.error("Ошибка загрузки фото:", e);
-            imgElement.style.display = 'none';
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
+        
+        const data = await response.json();
+        
+        if (data?.image) {
+          imgElement.src = `data:image/jpeg;base64,${data.image}`;
+          imgElement.style.display = 'block';
+        } else {
+          console.log("Фото журнала не найдено");
+        }
+      } catch (error) {
+        console.error("Ошибка при загрузке фото:", error);
+      }
     }
-
-    // Инициализация при загрузке
-    Telegram.WebApp.ready();
-    loadJournal();
 
     // Создание звездного неба
     function createStars() {
@@ -200,15 +217,11 @@
         const star = document.createElement('div');
         star.className = 'star';
         
-        const top = Math.random() > 0.2 ? 
-          Math.random() * 50 + 50 : 
-          Math.random() * 50;
-        
         star.style.cssText = `
           width: ${Math.random() * 3}px;
           height: ${Math.random() * 3}px;
           left: ${Math.random() * 100}%;
-          top: ${top}%;
+          top: ${Math.random() * 100}%;
           opacity: ${Math.random() * 0.7 + 0.3};
           box-shadow: 0 0 ${Math.random() * 5 + 2}px white;
           animation-duration: ${Math.random() * 4 + 2}s;
@@ -218,12 +231,16 @@
       }
     }
 
-    // Инициализация
-    window.addEventListener('load', () => {
+    // Инициализация при загрузке
+    document.addEventListener('DOMContentLoaded', () => {
       createStars();
-      loadJournal();
+      loadJournalPhoto();
+      
+      // Для отладки вне Telegram
+      if (!window.Telegram?.WebApp) {
+        console.log("Работает в режиме отладки (вне Telegram WebApp)");
+      }
     });
-    window.addEventListener('resize', createStars);
   </script>
 </body>
 </html>
