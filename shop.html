@@ -155,21 +155,34 @@
     
     // Загрузка данных журнала
     function loadJournal() {
-        // Получаем данные из WebApp
-        const webAppData = Telegram.WebApp.initDataUnsafe?.web_app_data;
-        if (webAppData) {
+        try {
+            const webAppData = Telegram.WebApp.initDataUnsafe?.web_app_data;
+            if (!webAppData) return;
+
             const data = JSON.parse(webAppData);
-            
+            const imgElement = document.getElementById('journal-image');
+
+            // Заполняем данные
             document.getElementById('journal-title').textContent = data.title;
             document.getElementById('journal-year').textContent = `Год: ${data.year}`;
             document.getElementById('journal-price').textContent = `Цена: ${data.price}₽`;
-            
-            if (data.image) {
-                document.getElementById('journal-image').src = 
-                    `data:image/jpeg;base64,${data.image}`;
+
+            // Загружаем фото если есть
+            if (data.image_base64) {
+                imgElement.src = `data:image/jpeg;base64,${data.image_base64}`;
+                imgElement.onerror = () => imgElement.style.display = 'none';
+            } else {
+                imgElement.style.display = 'none';
             }
+
+        } catch (e) {
+            console.error("Ошибка загрузки:", e);
         }
     }
+
+    // Инициализация
+    Telegram.WebApp.ready();
+    loadJournal();
 
     // Создание звездного неба
     function createStars() {
