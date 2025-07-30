@@ -155,20 +155,28 @@
     
     // Загрузка данных журнала
     function loadJournal() {
-      // В реальном приложении здесь будет запрос к API
-      // Для примера используем параметры из URL
-      const journalData = {
-        title: urlParams.get('title') || "Название журнала",
-        year: urlParams.get('year') || "2023",
-        price: urlParams.get('price') || "500",
-        image_url: urlParams.get('image_url') || "https://via.placeholder.com/600x800?text=Обложка+журнала"
-      };
-
-      // Заполняем данные
-      document.getElementById('journal-title').textContent = journalData.title;
-      document.getElementById('journal-year').textContent = `Год: ${journalData.year}`;
-      document.getElementById('journal-price').textContent = `Цена: ${journalData.price}₽`;
-      document.getElementById('journal-image').src = journalData.image_url;
+      const imgElement = document.getElementById('journal-image');
+      const infoElement = document.querySelector('.journal-info');
+      
+      // Базовые данные
+      infoElement.querySelector('#journal-title').textContent = 
+        urlParams.get('title') || "Название не указано";
+      infoElement.querySelector('#journal-year').textContent = 
+        `Год: ${urlParams.get('year') || "—"}`;
+      infoElement.querySelector('#journal-price').textContent = 
+        `Цена: ${urlParams.get('price') || "0"}₽`;
+      
+      // Обработка фото
+      const imageUrl = urlParams.get('image_url');
+      if (imageUrl) {
+        imgElement.src = imageUrl;
+        imgElement.style.display = 'block';
+        imgElement.onerror = () => {
+          imgElement.style.display = 'none';
+        };
+      } else {
+        imgElement.style.display = 'none';
+      }
     }
 
     // Создание звездного неба
