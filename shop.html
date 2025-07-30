@@ -158,7 +158,7 @@
         const params = new URLSearchParams(window.location.search);
         const imgElement = document.getElementById('journal-image');
         
-        // Заполняем текстовые данные
+        // 1. Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
             decodeURIComponent(params.get('title') || "Название не указано");
         document.getElementById('journal-year').textContent = 
@@ -166,19 +166,10 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // Загружаем фото
-        const imageUrl = params.get('image_url');
-        if (imageUrl) {
-            // Для file:// протокола (локальные файлы)
-            if (imageUrl.startsWith('file://')) {
-                // Только для десктопных клиентов
-                if (window.navigator.userAgent.includes('Electron')) {
-                    imgElement.src = imageUrl;
-                }
-            } else {
-                imgElement.src = imageUrl;
-            }
-            
+        // 2. Загружаем фото из base64
+        const imageBase64 = params.get('image_base64');
+        if (imageBase64) {
+            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
             imgElement.onerror = () => {
                 imgElement.style.display = 'none';
                 console.error("Ошибка загрузки изображения");
