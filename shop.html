@@ -6,7 +6,6 @@
   <title>Журнал</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    
     * {
       margin: 0;
       padding: 0;
@@ -160,7 +159,7 @@
         const journalId = params.get('journal');
         const imgElement = document.getElementById('journal-image');
         
-        // Заполняем текстовые данные
+        // 1. Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
             decodeURIComponent(params.get('title') || "Название не указано");
         document.getElementById('journal-year').textContent = 
@@ -168,7 +167,7 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // Загружаем фото
+        // 2. Загружаем фото
         try {
             const response = await fetch(`/get_journal_photo?journal_id=${journalId}`);
             const data = await response.json();
@@ -176,7 +175,6 @@
             if (data.image) {
                 imgElement.src = `data:image/jpeg;base64,${data.image}`;
                 imgElement.style.display = 'block';
-                imgElement.onerror = () => imgElement.style.display = 'none';
             } else {
                 imgElement.style.display = 'none';
             }
@@ -186,7 +184,7 @@
         }
     }
 
-    // Инициализация
+    // Запускаем при загрузке
     Telegram.WebApp.ready();
     loadJournal();
 
