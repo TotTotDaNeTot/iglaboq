@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>GitHub Inspired WebApp</title>
+  <title>Журнал</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * {
@@ -28,8 +28,7 @@
       width: 100%;
       height: 100%;
       z-index: -1;
-      background: 
-        radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+      background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
     }
 
     .star {
@@ -44,13 +43,23 @@
       100% { opacity: 1; }
     }
 
-    /* Контент */
+    /* Основной контент */
     .content {
       position: relative;
       z-index: 1;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
+    }
+
+    /* Изображение журнала */
+    .journal-image {
+      width: 100%;
+      max-height: 400px;
+      object-fit: contain;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 
     /* Остальные стили */
@@ -67,10 +76,16 @@
       font-weight: bold;
     }
 
-    h1 {
-      font-size: 1.8rem;
-      text-align: center;
-      margin-bottom: 15px;
+    .journal-info {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .journal-title {
+      font-size: 1.5rem;
+      margin-bottom: 10px;
     }
 
     .code-section {
@@ -83,6 +98,16 @@
 
     .code-keyword {
       color: #569cd6;
+    }
+
+    .sign-in-btn {
+      border: 1px solid white;
+      border-radius: 6px;
+      padding: 6px 12px;
+      background: transparent;
+      color: white;
+      font-size: 0.9rem;
+      cursor: pointer;
     }
   </style>
 </head>
@@ -97,9 +122,17 @@
       <button class="sign-in-btn">Sign in</button>
     </header>
 
-    <h1>Build and ship software on a single, collaborative platform</h1>
-    <p>Join the world's most widely adopted AI-powered developer platform.</p>
+    <!-- Вместо заголовка - изображение журнала -->
+    <img id="journal-image" class="journal-image" src="" alt="Обложка журнала">
 
+    <!-- Блок с информацией о журнале -->
+    <div class="journal-info">
+      <div id="journal-title" class="journal-title"></div>
+      <div id="journal-year"></div>
+      <div id="journal-price"></div>
+    </div>
+
+    <!-- Пример кода (оставляем как было) -->
     <div class="code-section">
       <pre><span class="code-keyword">class</span> if (GeomKey.isBeam) {
     player.setVelocity(&: 0, y: 289);
@@ -116,20 +149,39 @@
       Telegram.WebApp.enableClosingConfirmation();
     }
 
+    // Получаем параметры из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const journalId = urlParams.get('journal');
+    
+    // Загрузка данных журнала
+    function loadJournal() {
+      // В реальном приложении здесь будет запрос к API
+      // Для примера используем параметры из URL
+      const journalData = {
+        title: urlParams.get('title') || "Название журнала",
+        year: urlParams.get('year') || "2023",
+        price: urlParams.get('price') || "500",
+        image_url: urlParams.get('image_url') || "https://via.placeholder.com/600x800?text=Обложка+журнала"
+      };
+
+      // Заполняем данные
+      document.getElementById('journal-title').textContent = journalData.title;
+      document.getElementById('journal-year').textContent = `Год: ${journalData.year}`;
+      document.getElementById('journal-price').textContent = `Цена: ${journalData.price}₽`;
+      document.getElementById('journal-image').src = journalData.image_url;
+    }
+
     // Создание звездного неба
     function createStars() {
       const container = document.getElementById('stars-container');
       const starCount = 200;
       
-      // Очистка предыдущих звезд
       container.innerHTML = '';
       
-      // Создание звезд
       for (let i = 0; i < starCount; i++) {
         const star = document.createElement('div');
         star.className = 'star';
         
-        // 80% звезд в нижней части
         const top = Math.random() > 0.2 ? 
           Math.random() * 50 + 50 : 
           Math.random() * 50;
@@ -148,15 +200,12 @@
       }
     }
 
-    // Для web.telegram.org
-    if (window.location.href.includes('web.telegram.org')) {
-      document.body.style.backgroundColor = '#0d1117';
-    }
-
     // Инициализация
-    window.addEventListener('load', createStars);
+    window.addEventListener('load', () => {
+      createStars();
+      loadJournal();
+    });
     window.addEventListener('resize', createStars);
-    createStars();
   </script>
 </body>
 </html>
