@@ -154,11 +154,12 @@
     const journalId = urlParams.get('journal');
     
     // Загрузка данных журнала
-    function loadJournal() {
+    async function loadJournal() {
         const params = new URLSearchParams(window.location.search);
         const journalId = params.get('journal');
+        const imgElement = document.getElementById('journal-image');
         
-        // 1. Заполняем текстовые данные
+        // Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
             decodeURIComponent(params.get('title') || "Название не указано");
         document.getElementById('journal-year').textContent = 
@@ -166,17 +167,27 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // 2. Запрашиваем фото через отдельный запрос
-        fetch(`/get_journal_image?id=${journalId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.image) {
-                    document.getElementById('journal-image').src = 
-                        `data:image/jpeg;base64,${data.image}`;
-                }
-            })
-            .catch(e => console.error("Ошибка загрузки фото:", e));
+        // Загружаем фото
+        try {
+            const response = await fetch(`/get_journal_photo?journal_id=${journalId}`);
+            const data = await response.json();
+            
+            if (data.image) {
+                imgElement.src = `data:image/jpeg;base64,${data.image}`;
+                imgElement.style.display = 'block';
+                imgElement.onerror = () => imgElement.style.display = 'none';
+            } else {
+                imgElement.style.display = 'none';
+            }
+        } catch (e) {
+            console.error("Ошибка загрузки фото:", e);
+            imgElement.style.display = 'none';
+        }
     }
+
+    // Инициализация
+    Telegram.WebApp.ready();
+    loadJournal();
 
     // Создание звездного неба
     function createStars() {
