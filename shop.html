@@ -20,7 +20,6 @@
       overflow-x: hidden;
     }
 
-    /* Звездное небо */
     .stars-container {
       position: fixed;
       top: 0;
@@ -43,7 +42,6 @@
       100% { opacity: 1; }
     }
 
-    /* Основной контент */
     .content {
       position: relative;
       z-index: 1;
@@ -52,7 +50,6 @@
       padding: 20px;
     }
 
-    /* Изображение журнала */
     .journal-image {
       width: 100%;
       max-height: 400px;
@@ -60,10 +57,18 @@
       border-radius: 12px;
       margin-bottom: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      display: none; /* Скрываем по умолчанию */
+      background-color: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    /* Остальные стили */
+    .no-image-icon {
+      width: 100px;
+      height: 100px;
+      opacity: 0.5;
+    }
+
     header {
       display: flex;
       justify-content: space-between;
@@ -114,19 +119,22 @@
   </style>
 </head>
 <body>
-  <!-- Звездное небо -->
   <div class="stars-container" id="stars-container"></div>
 
-  <!-- Основной контент -->
   <div class="content">
     <header>
       <div class="logo">Журнал "Игла"</div>
     </header>
 
-    <!-- Изображение журнала -->
-    <img id="journal-image" class="journal-image" src="" alt="Обложка журнала">
+    <div id="image-container">
+      <img id="journal-image" class="journal-image" src="" alt="Обложка журнала">
+      <svg id="no-image-icon" class="no-image-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
+        <path d="M3 16L10 9L13 12L16 9L21 16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="8.5" cy="8.5" r="2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
 
-    <!-- Блок с информацией о журнале -->
     <div class="journal-info">
       <h1 id="journal-title" class="journal-title"></h1>
       <div id="journal-year" class="journal-meta"></div>
@@ -142,14 +150,16 @@
       Telegram.WebApp.expand();
       Telegram.WebApp.enableClosingConfirmation();
       
-      // Настройка основной кнопки
       Telegram.WebApp.MainButton
         .setText("Купить")
         .show()
         .onClick(() => {
+          const journalId = new URLSearchParams(window.location.search).get('journal');
           Telegram.WebApp.sendData(JSON.stringify({
             action: "purchase",
-            journalId: new URLSearchParams(window.location.search).get('journal')
+            journalId: journalId,
+            title: document.getElementById('journal-title').textContent,
+            price: document.getElementById('journal-price').textContent
           }));
         });
     }
@@ -160,6 +170,7 @@
     
     // Элементы DOM
     const imgElement = document.getElementById('journal-image');
+    const noImageIcon = document.getElementById('no-image-icon');
     const titleElement = document.getElementById('journal-title');
     const yearElement = document.getElementById('journal-year');
     const priceElement = document.getElementById('journal-price');
@@ -175,19 +186,25 @@
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.sendData(JSON.stringify({
           action: "purchase",
-          journalId: journalId
+          journalId: journalId,
+          title: titleElement.textContent,
+          price: priceElement.textContent
         }));
       } else {
-        alert(`Покупка журнала ID: ${journalId}`);
+        alert(`Покупка: ${titleElement.textContent}\n${priceElement.textContent}`);
       }
     });
 
     // Загрузка фото журнала
     async function loadJournalPhoto() {
-      if (!journalId) return;
+      if (!journalId) {
+        showNoImage();
+        return;
+      }
       
       try {
-        const response = await fetch(`http://localhost:8000/get_journal_photo?journal_id=${journalId}`);
+        const apiUrl = `http://localhost:8000/get_journal_photo?journal_id=${journalId}`;
+        const response = await fetch(apiUrl);
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -198,12 +215,20 @@
         if (data?.image) {
           imgElement.src = `data:image/jpeg;base64,${data.image}`;
           imgElement.style.display = 'block';
+          noImageIcon.style.display = 'none';
         } else {
-          console.log("Фото журнала не найдено");
+          showNoImage();
+          console.log("Фото журнала не найдено в ответе сервера");
         }
       } catch (error) {
         console.error("Ошибка при загрузке фото:", error);
+        showNoImage();
       }
+    }
+
+    function showNoImage() {
+      imgElement.style.display = 'none';
+      noImageIcon.style.display = 'block';
     }
 
     // Создание звездного неба
