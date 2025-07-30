@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>GitHub Inspired WebApp</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
@@ -20,6 +20,7 @@
       overflow-x: hidden;
     }
 
+    /* Звездное небо */
     .stars-container {
       position: fixed;
       top: 0;
@@ -27,19 +28,23 @@
       width: 100%;
       height: 100%;
       z-index: -1;
-      overflow: hidden;
-    }
-
-    .stars {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      height: 70%;
       background: 
         radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
     }
 
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      animation: twinkle 3s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      0% { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    /* Контент */
     .content {
       position: relative;
       z-index: 1;
@@ -48,97 +53,110 @@
       padding: 20px;
     }
 
-    /* Остальные стили остаются без изменений */
+    /* Остальные стили */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      margin-bottom: 20px;
+    }
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      text-align: center;
+      margin-bottom: 15px;
+    }
+
+    .code-section {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      overflow-x: auto;
+    }
+
+    .code-keyword {
+      color: #569cd6;
+    }
   </style>
 </head>
 <body>
-  <!-- Контейнер для звездного неба -->
-  <div class="stars-container">
-    <div class="stars" id="stars"></div>
-  </div>
+  <!-- Звездное небо -->
+  <div class="stars-container" id="stars-container"></div>
 
+  <!-- Основной контент -->
   <div class="content">
-    <!-- Ваш контент -->
     <header>
-      <div class="menu-icon">&#9776;</div>
       <div class="logo">GitHub</div>
       <button class="sign-in-btn">Sign in</button>
     </header>
 
     <h1>Build and ship software on a single, collaborative platform</h1>
-    <p class="subtitle">Join the world's most widely adopted AI-powered developer platform.</p>
-
-    <form>
-      <input type="email" placeholder="Enter your email" required>
-      <button type="submit" class="submit-btn">Sign up for GitHub</button>
-    </form>
-
-    <button class="secondary-btn">Try GitHub Copilot</button>
+    <p>Join the world's most widely adopted AI-powered developer platform.</p>
 
     <div class="code-section">
-      <pre><span class="code-keyword">else if</span> (downKey.isDown) {
-    player.setVelocity({x: 0, y: 200});
+      <pre><span class="code-keyword">class</span> if (GeomKey.isBeam) {
+    player.setVelocity(&: 0, y: 289);
 } <span class="code-keyword">else</span> {
-    player.setVelocity({x: 0, y: 0});
+    player.setVelocity(&: 0, y: 0);
 }</pre>
     </div>
   </div>
 
   <script>
     // Инициализация Telegram WebApp
-    if (window.Telegram?.WebApp?.initDataUnsafe) {
+    if (window.Telegram?.WebApp?.initData) {
       Telegram.WebApp.expand();
       Telegram.WebApp.enableClosingConfirmation();
     }
 
-    // Генерация звездного неба как на GitHub
+    // Создание звездного неба
     function createStars() {
-      const starsEl = document.getElementById('stars');
-      const count = 200;
+      const container = document.getElementById('stars-container');
+      const starCount = 200;
       
-      // Очищаем предыдущие звезды
-      starsEl.innerHTML = '';
+      // Очистка предыдущих звезд
+      container.innerHTML = '';
       
-      // Создаем звезды
-      for (let i = 0; i < count; i++) {
+      // Создание звезд
+      for (let i = 0; i < starCount; i++) {
         const star = document.createElement('div');
         star.className = 'star';
         
-        // Позиционирование (80% звезд в нижней части)
-        const posY = Math.random() > 0.2 
-          ? 50 + Math.random() * 50 
-          : Math.random() * 50;
+        // 80% звезд в нижней части
+        const top = Math.random() > 0.2 ? 
+          Math.random() * 50 + 50 : 
+          Math.random() * 50;
         
         star.style.cssText = `
-          position: absolute;
           width: ${Math.random() * 3}px;
           height: ${Math.random() * 3}px;
-          background: white;
-          border-radius: 50%;
           left: ${Math.random() * 100}%;
-          top: ${posY}%;
+          top: ${top}%;
           opacity: ${Math.random() * 0.7 + 0.3};
-          box-shadow: 0 0 10px 1px rgba(255,255,255,0.5);
-          animation: twinkle ${Math.random() * 5 + 3}s infinite alternate;
+          box-shadow: 0 0 ${Math.random() * 5 + 2}px white;
+          animation-duration: ${Math.random() * 4 + 2}s;
         `;
         
-        starsEl.appendChild(star);
+        container.appendChild(star);
       }
-      
-      // Добавляем анимацию мерцания
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes twinkle {
-          0% { opacity: 0.3; }
-          100% { opacity: 1; }
-        }
-      `;
-      document.head.appendChild(style);
     }
 
-    // Запускаем при загрузке и при ресайзе
+    // Для web.telegram.org
+    if (window.location.href.includes('web.telegram.org')) {
+      document.body.style.backgroundColor = '#0d1117';
+    }
+
+    // Инициализация
     window.addEventListener('load', createStars);
     window.addEventListener('resize', createStars);
+    createStars();
   </script>
 </body>
 </html>
