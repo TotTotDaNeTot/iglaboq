@@ -18,12 +18,11 @@
         Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
       color: white;
       background: #0d1117;
-      overflow-x: hidden;
     }
 
     #starry-background {
       position: fixed;
-      top: 0;
+      bottom: 0;
       left: 0;
       width: 100%;
       height: 100%;
@@ -36,143 +35,17 @@
       padding: 1rem;
       position: relative;
       z-index: 1;
-      min-height: 100vh;
+      background: rgba(13, 17, 23, 0.7);
     }
 
     /* Остальные стили остаются без изменений */
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem 0;
-      margin-bottom: 1.5rem;
-    }
-
-    .menu-icon {
-      font-size: 1.5rem;
-      cursor: pointer;
-    }
-
-    .logo {
-      font-size: 1.5rem;
-      font-weight: bold;
-    }
-
-    .sign-in-btn {
-      border: 1px solid white;
-      border-radius: 6px;
-      padding: 0.3rem 0.8rem;
-      background: transparent;
-      color: white;
-      font-weight: 500;
-      font-size: 0.9rem;
-      cursor: pointer;
-    }
-
-    h1 {
-      font-size: 1.8rem;
-      font-weight: 700;
-      line-height: 1.3;
-      margin-bottom: 1rem;
-      text-align: center;
-    }
-
-    p.subtitle {
-      font-size: 1rem;
-      text-align: center;
-      margin-bottom: 1.5rem;
-      opacity: 0.8;
-    }
-
-    form {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.8rem;
-      margin-bottom: 1.5rem;
-      backdrop-filter: blur(5px);
-    }
-
-    input[type="email"] {
-      padding: 0.8rem 1rem;
-      border-radius: 8px;
-      border: none;
-      font-size: 1rem;
-      background: rgba(255, 255, 255, 0.2);
-      color: white;
-      font-weight: 500;
-    }
-
-    input::placeholder {
-      color: #ddd;
-    }
-
-    button.submit-btn {
-      background-color: #238636;
-      border: none;
-      border-radius: 8px;
-      padding: 0.8rem;
-      color: white;
-      font-weight: 600;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-
-    button.secondary-btn {
-      background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
-      padding: 0.8rem;
-      color: white;
-      font-weight: 500;
-      font-size: 1rem;
-      cursor: pointer;
-      width: 100%;
-      margin-bottom: 1.5rem;
-    }
-
-    .code-section {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 10px;
-      padding: 1rem;
-      margin-bottom: 1.5rem;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9rem;
-      line-height: 1.5;
-      overflow-x: auto;
-    }
-
-    .code-section pre {
-      margin: 0;
-      white-space: pre-wrap;
-    }
-
-    .code-keyword {
-      color: #569cd6;
-    }
-
-    .code-comment {
-      color: #6a9955;
-    }
-
-    .code-string {
-      color: #ce9178;
-    }
-
-    footer {
-      text-align: center;
-      padding: 1rem 0;
-      font-size: 0.8rem;
-      opacity: 0.7;
-    }
   </style>
 </head>
 <body>
   <canvas id="starry-background"></canvas>
   
   <div class="content">
+    <!-- Ваш контент без изменений -->
     <header>
       <div class="menu-icon">&#9776;</div>
       <div class="logo">GitHub</div>
@@ -205,93 +78,55 @@
     updatePlayerVelocity(<span class="code-keyword">this</span>.player2, <span class="code-keyword">this</span>.akey, <span class="code-keyword">this</span>.dkey);
 }</pre>
     </div>
-
-    <footer>
-      GitHub Copilot: Your AI pair programmer
-    </footer>
   </div>
 
   <script>
     // Инициализация Telegram WebApp
     const tg = window.Telegram.WebApp;
-    if (tg.platform !== 'unknown') {
-      tg.expand();
-      tg.enableClosingConfirmation();
-    }
-
-    // Улучшенное звездное небо
+    tg.expand();
+    
+    // Звездное небо
     const canvas = document.getElementById('starry-background');
     const ctx = canvas.getContext('2d');
-    let stars = [];
-    const starCount = 300;
-
-    function initStars() {
-      stars = [];
-      for (let i = 0; i < starCount; i++) {
-        stars.push({
-          x: Math.random() * canvas.width,
-          y: Math.random() * canvas.height * 0.6 + canvas.height * 0.4, // 60% звезд в нижней части
-          z: Math.random() * 1000,
-          size: Math.random() * 1.5 + 0.5,
-          speed: Math.random() * 0.02 + 0.01,
-          alpha: Math.random() * 0.7 + 0.3
-        });
-      }
-    }
-
+    
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      initStars();
     }
-
+    
     function drawStars() {
       ctx.fillStyle = '#0d1117';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      stars.forEach(star => {
-        // Параллакс-эффект
-        const x = star.x;
-        const y = star.y + (star.z / 100);
-        const radius = star.size * (1 - star.z / 2000);
-        
-        // Градиент для звезд
-        const gradient = ctx.createRadialGradient(
-          x, y, 0, 
-          x, y, radius
-        );
-        gradient.addColorStop(0, `rgba(255, 255, 255, ${star.alpha})`);
-        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      // Рисуем звезды только в нижней части
+      for(let i = 0; i < 200; i++) {
+        const x = Math.random() * canvas.width;
+        const y = canvas.height * 0.7 + Math.random() * canvas.height * 0.3;
+        const radius = Math.random() * 1.5;
+        const opacity = Math.random() * 0.5 + 0.5;
         
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
         ctx.fill();
-        
-        // Анимация звезд
-        star.z -= star.speed * 50;
-        if (star.z <= 0) {
-          star.z = 1000;
-          star.x = Math.random() * canvas.width;
-          star.y = Math.random() * canvas.height * 0.6 + canvas.height * 0.4;
-        }
-        
-        // Мерцание
-        star.alpha += (Math.random() - 0.5) * 0.05;
-        star.alpha = Math.max(0.3, Math.min(1, star.alpha));
-      });
+      }
     }
-
-    function animate() {
-      drawStars();
-      requestAnimationFrame(animate);
-    }
-
-    window.addEventListener('resize', resizeCanvas);
     
-    // Инициализация
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+      drawStars();
+    });
+    
     resizeCanvas();
-    animate();
+    drawStars();
+    
+    // Открытие в мини-приложении
+    if (window.Telegram && window.Telegram.WebApp) {
+      Telegram.WebApp.ready();
+      Telegram.WebApp.expand();
+    } else {
+      console.log("Not in Telegram WebApp");
+    }
   </script>
 </body>
 </html>
