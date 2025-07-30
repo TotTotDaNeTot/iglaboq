@@ -169,10 +169,19 @@
         // Загружаем фото
         const imageUrl = params.get('image_url');
         if (imageUrl) {
-            imgElement.src = imageUrl;
+            // Для file:// протокола (локальные файлы)
+            if (imageUrl.startsWith('file://')) {
+                // Только для десктопных клиентов
+                if (window.navigator.userAgent.includes('Electron')) {
+                    imgElement.src = imageUrl;
+                }
+            } else {
+                imgElement.src = imageUrl;
+            }
+            
             imgElement.onerror = () => {
                 imgElement.style.display = 'none';
-                console.error("Не удалось загрузить изображение");
+                console.error("Ошибка загрузки изображения");
             };
         } else {
             imgElement.style.display = 'none';
