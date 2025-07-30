@@ -156,7 +156,7 @@
     // Загрузка данных журнала
     function loadJournal() {
         const params = new URLSearchParams(window.location.search);
-        const imgElement = document.getElementById('journal-image');
+        const journalId = params.get('journal');
         
         // 1. Заполняем текстовые данные
         document.getElementById('journal-title').textContent = 
@@ -166,22 +166,17 @@
         document.getElementById('journal-price').textContent = 
             `Цена: ${params.get('price') || "0"}₽`;
 
-        // 2. Отображаем фото если есть
-        const imageBase64 = params.get('image_base64');
-        if (imageBase64) {
-            imgElement.src = `data:image/jpeg;base64,${imageBase64}`;
-            imgElement.style.display = 'block';
-            imgElement.onerror = () => {
-                imgElement.style.display = 'none';
-                console.error("Ошибка загрузки фото");
-            };
-        } else {
-            imgElement.style.display = 'none';
-        }
+        // 2. Запрашиваем фото через отдельный запрос
+        fetch(`/get_journal_image?id=${journalId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.image) {
+                    document.getElementById('journal-image').src = 
+                        `data:image/jpeg;base64,${data.image}`;
+                }
+            })
+            .catch(e => console.error("Ошибка загрузки фото:", e));
     }
-
-    // Инициализация
-    window.addEventListener('load', loadJournal);
 
     // Создание звездного неба
     function createStars() {
