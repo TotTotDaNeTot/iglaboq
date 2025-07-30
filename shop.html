@@ -195,58 +195,46 @@
       }
     });
 
-    // Загрузка фото журнала
+    // НОВАЯ ВЕРСИЯ загрузки фото
     async function loadJournalPhoto() {
-        const imgContainer = document.getElementById('image-container');
-        const journalId = new URLSearchParams(window.location.search).get('journal');
+      const journalId = new URLSearchParams(window.location.search).get('journal');
+      const imgElement = document.getElementById('journal-image');
+      const noImageIcon = document.getElementById('no-image-icon');
+      
+      // Прямая ссылка на изображение в GitHub
+      const imageUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/igla_${journalId}.jpg?t=${Date.now()}`;
+      
+      // Создаем временное изображение для проверки
+      const testImage = new Image();
+      
+      testImage.onload = function() {
+        // Если изображение загрузилось
+        imgElement.src = imageUrl;
+        imgElement.style.display = 'block';
+        noImageIcon.style.display = 'none';
+        console.log("Изображение успешно загружено");
+      };
+      
+      testImage.onerror = function() {
+        // Если ошибка загрузки
+        imgElement.style.display = 'none';
+        noImageIcon.style.display = 'block';
+        console.error("Ошибка загрузки изображения");
         
-        try {
-            // 1. Показываем загрузку
-            imgContainer.innerHTML = '<div class="loader">Загрузка изображения...</div>';
-            
-            // 2. Делаем запрос к серверу
-            const response = await fetch(`http://ваш_сервер:8000/get_journal_photo?journal_id=${journalId}`);
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-            
-            const data = await response.json();
-            
-            // 3. Обрабатываем ответ
-            if (data?.image) {
-                imgContainer.innerHTML = `
-                    <img src="data:image/jpeg;base64,${data.image}" 
-                        class="journal-image" 
-                        alt="Обложка журнала">
-                `;
-            } else {
-                showNoImage(imgContainer);
-            }
-        } catch (error) {
-            console.error("Ошибка:", error);
-            showNoImage(imgContainer);
-        }
+        // Показываем в консоли URL, по которому пробовали загрузить
+        console.log("Пробовали загрузить по URL:", imageUrl);
+      };
+      
+      // Начинаем загрузку
+      testImage.src = imageUrl;
     }
 
-    function showNoImage(container) {
-        container.innerHTML = `
-            <div class="no-image">
-                <svg width="100" height="100" viewBox="0 0 24 24" fill="none">
-                    <path d="M3 16L10 9L13 12L16 9L21 16" stroke="#ccc"/>
-                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="#ccc"/>
-                    <circle cx="8.5" cy="8.5" r="2.5" stroke="#ccc"/>
-                </svg>
-                <p>Изображение недоступно</p>
-            </div>
-        `;
+    function showNoImage() {
+      document.getElementById('journal-image').style.display = 'none';
+      document.getElementById('no-image-icon').style.display = 'block';
     }
 
-    // Запускаем при загрузке
-    Telegram.WebApp.ready();
-    loadJournalPhoto();
-
-    // Создание звездного неба
+    // Создание звездного неба (без изменений)
     function createStars() {
       const container = document.getElementById('stars-container');
       const starCount = 200;
@@ -276,9 +264,8 @@
       createStars();
       loadJournalPhoto();
       
-      // Для отладки вне Telegram
       if (!window.Telegram?.WebApp) {
-        console.log("Работает в режиме отладки (вне Telegram WebApp)");
+        console.log("Режим отладки (вне Telegram)");
       }
     });
   </script>
