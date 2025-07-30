@@ -197,38 +197,47 @@
 
     // Загрузка фото журнала
     async function loadJournalPhoto() {
-      if (!journalId) {
-        showNoImage();
-        return;
-      }
-      
-      try {
-        const apiUrl = `http://localhost:8000/get_journal_photo?journal_id=${journalId}`;
-        const response = await fetch(apiUrl);
+        const imgElement = document.getElementById('journal-image');
+        const noImagePlaceholder = document.getElementById('no-image-placeholder');
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        try {
+            const response = await fetch(`http://your-server-address:8000/get_journal_photo?journal_id=${journalId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data?.image) {
+                // Показываем фото журнала
+                imgElement.src = `data:image/jpeg;base64,${data.image}`;
+                imgElement.style.display = 'block';
+                noImagePlaceholder.style.display = 'none';
+            } else {
+                // Показываем заглушку, если фото нет
+                showNoImage();
+            }
+        } catch (error) {
+            console.error("Ошибка загрузки фото:", error);
+            showNoImage();
         }
-        
-        const data = await response.json();
-        
-        if (data?.image) {
-          imgElement.src = `data:image/jpeg;base64,${data.image}`;
-          imgElement.style.display = 'block';
-          noImageIcon.style.display = 'none';
-        } else {
-          showNoImage();
-          console.log("Фото журнала не найдено в ответе сервера");
-        }
-      } catch (error) {
-        console.error("Ошибка при загрузке фото:", error);
-        showNoImage();
-      }
     }
 
     function showNoImage() {
-      imgElement.style.display = 'none';
-      noImageIcon.style.display = 'block';
+        const imgElement = document.getElementById('journal-image');
+        const noImagePlaceholder = document.getElementById('no-image-placeholder');
+        
+        imgElement.style.display = 'none';
+        noImagePlaceholder.style.display = 'block';
+        noImagePlaceholder.innerHTML = `
+            <svg width="100" height="100" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="#ffffff" stroke-width="2"/>
+                <circle cx="8.5" cy="8.5" r="2.5" stroke="#ffffff" stroke-width="2"/>
+                <path d="M21 15L16 10L13 13L10 10L3 17" stroke="#ffffff" stroke-width="2"/>
+            </svg>
+            <p>Изображение отсутствует</p>
+        `;
     }
 
     // Создание звездного неба
