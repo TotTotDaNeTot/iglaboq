@@ -11,7 +11,6 @@
       padding: 0;
       box-sizing: border-box;
     }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: white;
@@ -19,7 +18,6 @@
       min-height: 100vh;
       overflow-x: hidden;
     }
-
     .stars-container {
       position: fixed;
       top: 0;
@@ -29,19 +27,16 @@
       z-index: -1;
       background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
     }
-
     .star {
       position: absolute;
       background: white;
       border-radius: 50%;
       animation: twinkle 3s infinite alternate;
     }
-
     @keyframes twinkle {
       0% { opacity: 0.3; }
       100% { opacity: 1; }
     }
-
     .content {
       position: relative;
       z-index: 1;
@@ -49,7 +44,6 @@
       margin: 0 auto;
       padding: 20px;
     }
-
     .journal-image {
       width: 100%;
       max-height: 400px;
@@ -57,16 +51,11 @@
       border-radius: 12px;
       margin-bottom: 20px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      background-color: #1a1a1a;
-      display: flex;
-      justify-content: center;
-      align-items: center;
     }
-
-    .no-image-icon {
-      width: 100px;
-      height: 100px;
-      opacity: 0.5;
+    .no-image {
+      text-align: center;
+      padding: 40px 0;
+      color: #999;
     }
 
     header {
@@ -127,146 +116,99 @@
     </header>
 
     <div id="image-container">
-      <img id="journal-image" class="journal-image" src="" alt="Обложка журнала">
-      <svg id="no-image-icon" class="no-image-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: none;">
-        <path d="M3 16L10 9L13 12L16 9L21 16" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <rect x="3" y="3" width="18" height="18" rx="2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="8.5" cy="8.5" r="2.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
+      <img id="journal-image" class="journal-image" style="display:none;">
+      <div id="no-image" class="no-image">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
+          <path d="M3 16L10 9L13 12L16 9L21 16"/>
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+          <circle cx="8.5" cy="8.5" r="2.5"/>
+        </svg>
+        <p>Загрузка обложки...</p>
+      </div>
     </div>
 
     <div class="journal-info">
       <h1 id="journal-title" class="journal-title"></h1>
       <div id="journal-year" class="journal-meta"></div>
       <div id="journal-price" class="journal-meta"></div>
-      
       <button id="buy-btn" class="buy-btn">Купить сейчас</button>
     </div>
   </div>
 
   <script>
-    // Инициализация Telegram WebApp
+    // Инициализация WebApp
     if (window.Telegram?.WebApp) {
       Telegram.WebApp.expand();
-      Telegram.WebApp.enableClosingConfirmation();
-      
-      Telegram.WebApp.MainButton
-        .setText("Купить")
-        .show()
-        .onClick(() => {
-          const journalId = new URLSearchParams(window.location.search).get('journal');
-          Telegram.WebApp.sendData(JSON.stringify({
-            action: "purchase",
-            journalId: journalId,
-            title: document.getElementById('journal-title').textContent,
-            price: document.getElementById('journal-price').textContent
-          }));
-        });
+      Telegram.WebApp.MainButton.setText("Купить").show().onClick(handlePurchase);
     }
 
-    // Получаем параметры из URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const journalId = urlParams.get('journal');
-    
-    // Элементы DOM
-    const imgElement = document.getElementById('journal-image');
-    const noImageIcon = document.getElementById('no-image-icon');
-    const titleElement = document.getElementById('journal-title');
-    const yearElement = document.getElementById('journal-year');
-    const priceElement = document.getElementById('journal-price');
-    const buyBtn = document.getElementById('buy-btn');
+    // Получение параметров
+    const params = new URLSearchParams(window.location.search);
+    const journalId = params.get('journal');
 
-    // Заполняем текстовые данные
-    titleElement.textContent = decodeURIComponent(urlParams.get('title') || "Название не указано");
-    yearElement.textContent = `Год выпуска: ${urlParams.get('year') || "—"}`;
-    priceElement.textContent = `Цена: ${urlParams.get('price') || "0"}₽`;
+    // Заполнение данных
+    document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
+    document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+    document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
 
-    // Обработчик кнопки покупки
-    buyBtn.addEventListener('click', () => {
+    // Загрузка фото
+    function loadJournalPhoto() {
+      const img = new Image();
+      img.onload = function() {
+        document.getElementById('journal-image').src = this.src;
+        document.getElementById('journal-image').style.display = 'block';
+        document.getElementById('no-image').style.display = 'none';
+      };
+      img.onerror = function() {
+        document.getElementById('no-image').innerHTML = `
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+            <path d="M3 16L10 9L13 12L16 9L21 16"/>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="2.5"/>
+          </svg>
+          <p>Обложка недоступна</p>
+        `;
+      };
+      img.src = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/journals/igla_${journalId}.jpg?t=${Date.now()}`;
+    }
+
+    // Обработка покупки
+    function handlePurchase() {
+      const purchaseData = {
+        journalId: journalId,
+        title: document.getElementById('journal-title').textContent,
+        price: document.getElementById('journal-price').textContent
+      };
       if (window.Telegram?.WebApp) {
-        Telegram.WebApp.sendData(JSON.stringify({
-          action: "purchase",
-          journalId: journalId,
-          title: titleElement.textContent,
-          price: priceElement.textContent
-        }));
+        Telegram.WebApp.sendData(JSON.stringify(purchaseData));
       } else {
-        alert(`Покупка: ${titleElement.textContent}\n${priceElement.textContent}`);
+        alert(`Покупка: ${purchaseData.title}\n${purchaseData.price}`);
       }
-    });
-
-    // НОВАЯ ВЕРСИЯ загрузки фото
-    async function loadJournalPhoto() {
-      const journalId = new URLSearchParams(window.location.search).get('journal');
-      const imgElement = document.getElementById('journal-image');
-      const noImageIcon = document.getElementById('no-image-icon');
-      
-      // Прямая ссылка на изображение в GitHub
-      const imageUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/igla_${journalId}.jpg?t=${Date.now()}`;
-      
-      // Создаем временное изображение для проверки
-      const testImage = new Image();
-      
-      testImage.onload = function() {
-        // Если изображение загрузилось
-        imgElement.src = imageUrl;
-        imgElement.style.display = 'block';
-        noImageIcon.style.display = 'none';
-        console.log("Изображение успешно загружено");
-      };
-      
-      testImage.onerror = function() {
-        // Если ошибка загрузки
-        imgElement.style.display = 'none';
-        noImageIcon.style.display = 'block';
-        console.error("Ошибка загрузки изображения");
-        
-        // Показываем в консоли URL, по которому пробовали загрузить
-        console.log("Пробовали загрузить по URL:", imageUrl);
-      };
-      
-      // Начинаем загрузку
-      testImage.src = imageUrl;
     }
 
-    function showNoImage() {
-      document.getElementById('journal-image').style.display = 'none';
-      document.getElementById('no-image-icon').style.display = 'block';
-    }
-
-    // Создание звездного неба (без изменений)
+    // Звездное небо
     function createStars() {
       const container = document.getElementById('stars-container');
-      const starCount = 200;
-      
-      container.innerHTML = '';
-      
-      for (let i = 0; i < starCount; i++) {
+      for (let i = 0; i < 200; i++) {
         const star = document.createElement('div');
         star.className = 'star';
-        
         star.style.cssText = `
           width: ${Math.random() * 3}px;
           height: ${Math.random() * 3}px;
           left: ${Math.random() * 100}%;
           top: ${Math.random() * 100}%;
           opacity: ${Math.random() * 0.7 + 0.3};
-          box-shadow: 0 0 ${Math.random() * 5 + 2}px white;
           animation-duration: ${Math.random() * 4 + 2}s;
         `;
-        
         container.appendChild(star);
       }
     }
 
-    // Инициализация при загрузке
+    // Инициализация
     document.addEventListener('DOMContentLoaded', () => {
       createStars();
       loadJournalPhoto();
-      
-      if (!window.Telegram?.WebApp) {
-        console.log("Режим отладки (вне Telegram)");
-      }
+      document.getElementById('buy-btn').addEventListener('click', handlePurchase);
     });
   </script>
 </body>
