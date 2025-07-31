@@ -55,9 +55,7 @@
     .gallery-images-wrapper {
       position: relative;
       min-height: 300px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      overflow: hidden;
     }
     
     .gallery-image {
@@ -69,11 +67,13 @@
       opacity: 0;
       transition: opacity 0.3s ease;
       position: absolute;
+      top: 0;
+      left: 0;
     }
     
     .gallery-image.active {
       opacity: 1;
-      position: relative;
+      z-index: 1;
     }
     
     .gallery-nav {
@@ -369,17 +369,24 @@
     function showPrevImage() {
       if (images.length <= 1) return;
       
-      images[currentImageIndex].classList.remove('active');
-      currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-      images[currentImageIndex].classList.add('active');
+      // Добавляем временный класс для плавного перехода
+      images[currentImageIndex].classList.add('fading-out');
+      setTimeout(() => {
+        images[currentImageIndex].classList.remove('active', 'fading-out');
+        currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+        images[currentImageIndex].classList.add('active');
+      }, 50);
     }
 
     function showNextImage() {
       if (images.length <= 1) return;
       
-      images[currentImageIndex].classList.remove('active');
-      currentImageIndex = (currentImageIndex + 1) % images.length;
-      images[currentImageIndex].classList.add('active');
+      images[currentImageIndex].classList.add('fading-out');
+      setTimeout(() => {
+        images[currentImageIndex].classList.remove('active', 'fading-out');
+        currentImageIndex = (currentImageIndex + 1) % images.length;
+        images[currentImageIndex].classList.add('active');
+      }, 50);
     }
 
     function handlePurchase() {
