@@ -55,17 +55,18 @@
     
     .gallery-images-wrapper {
       position: relative;
-      min-height: 400px; /* Уменьшена высота блока */
-      height: 400px; /* Фиксированная высота */
+      min-height: 400px;
+      height: 400px;
       display: flex;
       justify-content: center;
       align-items: center;
       overflow: visible;
+      touch-action: pan-y; /* Разрешаем вертикальные свайпы */
     }
     
     .gallery-image {
       max-width: 100%;
-      max-height: 400px; /* Соответствует высоте контейнера */
+      max-height: 400px;
       width: auto;
       height: auto;
       object-fit: contain;
@@ -88,9 +89,9 @@
       position: absolute;
       top: 50%;
       transform: translateY(-50%);
-      width: 40px;
-      height: 40px;
-      background: rgba(0,0,0,0.5);
+      width: 44px;
+      height: 44px;
+      background: rgba(0,0,0,0.7);
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -103,12 +104,18 @@
       -ms-user-select: none;
       user-select: none;
       touch-action: manipulation;
-      opacity: 0;
-      transition: opacity 0.3s;
+      opacity: 0.8;
     }
     
-    .gallery-container:hover .gallery-nav {
-      opacity: 0.8;
+    /* Для устройств с мышкой */
+    @media (hover: hover) {
+      .gallery-nav {
+        opacity: 0;
+        background: rgba(0,0,0,0.5);
+      }
+      .gallery-container:hover .gallery-nav {
+        opacity: 0.8;
+      }
     }
     
     .gallery-nav:hover {
@@ -247,7 +254,7 @@
         </svg>
       </div>
       
-      <div class="gallery-images-wrapper">
+      <div class="gallery-images-wrapper" id="gallery-wrapper">
         <div id="gallery-images"></div>
         <div id="no-image" class="no-image">
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
@@ -263,8 +270,6 @@
     <div class="journal-description">
       <div class="description-content" id="description-content"></div>
     </div>
-
-    <hr>
 
     <div class="journal-info">
       <h1 id="journal-title" class="journal-title"></h1>
@@ -286,7 +291,9 @@
     let currentImageIndex = 0;
     let images = [];
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
+    let touchStartX = 0;
 
+    // Функции для работы с изображениями
     async function checkImageExists(url) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -364,6 +371,7 @@
     function setupNavigation() {
       const prevBtn = document.getElementById('gallery-prev');
       const nextBtn = document.getElementById('gallery-next');
+      const galleryWrapper = document.getElementById('gallery-wrapper');
       
       if (images.length <= 1) {
         prevBtn.style.display = 'none';
@@ -371,6 +379,7 @@
         return;
       }
       
+      // Обработчики кликов
       prevBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showPrevImage();
@@ -380,12 +389,29 @@
         e.preventDefault();
         showNextImage();
       }, {passive: false});
+      
+      // Обработчики свайпов
+      galleryWrapper.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+      }, {passive: true});
+      
+      galleryWrapper.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > 50) { // Порог свайпа
+          if (diff > 0) {
+            showNextImage(); // Свайп влево
+          } else {
+            showPrevImage(); // Свайп вправо
+          }
+        }
+      }, {passive: true});
     }
 
     function showPrevImage() {
       if (images.length <= 1) return;
       
-      // Добавляем временный класс для плавного перехода
       images[currentImageIndex].classList.add('fading-out');
       setTimeout(() => {
         images[currentImageIndex].classList.remove('active', 'fading-out');
@@ -445,7 +471,6 @@
       
       document.getElementById('buy-btn').addEventListener('click', handlePurchase);
       
-      // Загружаем изображения после отображения основного контента
       setTimeout(() => {
         loadAllImages();
       }, 0);
