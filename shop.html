@@ -105,6 +105,45 @@
     .buy-btn:hover {
       background: #2c974b;
     }
+
+    /* Новый стиль для блока с описанием */
+    .journal-description {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    
+    .description-title {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    
+    .description-content {
+      line-height: 1.5;
+    }
+    
+    /* Стили для скроллбара */
+    .journal-description::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .journal-description::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+    
+    .journal-description::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.3);
+      border-radius: 3px;
+    }
+    
+    .journal-description::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.5);
+    }
   </style>
 </head>
 <body>
@@ -124,6 +163,23 @@
           <circle cx="8.5" cy="8.5" r="2.5"/>
         </svg>
         <p>Загрузка обложки...</p>
+      </div>
+    </div>
+
+    <!-- Новый блок с описанием -->
+    <div class="journal-description">
+      <div class="description-title">Игла #1</div>
+      <div class="description-content">
+        <p>Журнал "Игла" - это уникальное издание, посвященное искусству разговора. В первом выпуске мы исследуем темы:</p>
+        <ul>
+          <li>Искусство ведения диалога</li>
+          <li>Психология общения</li>
+          <li>История разговорных жанров</li>
+          <li>Интервью с известными собеседниками</li>
+          <li>Анализ значимых бесед современности</li>
+        </ul>
+        <p>Каждый выпуск журнала - это глубокое погружение в мир человеческого общения, исследование того, как слова формируют нашу реальность.</p>
+        <p>В этом номере вы найдете эксклюзивные интервью, аналитические материалы и практические советы по улучшению навыков общения.</p>
       </div>
     </div>
 
