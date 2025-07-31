@@ -166,21 +166,9 @@
       </div>
     </div>
 
-    <!-- Новый блок с описанием -->
-    <div class="journal-description">
-      <div class="description-title">Игла #1</div>
-      <div class="description-content">
-        <p>Журнал "Игла" - это уникальное издание, посвященное искусству разговора. В первом выпуске мы исследуем темы:</p>
-        <ul>
-          <li>Искусство ведения диалога</li>
-          <li>Психология общения</li>
-          <li>История разговорных жанров</li>
-          <li>Интервью с известными собеседниками</li>
-          <li>Анализ значимых бесед современности</li>
-        </ul>
-        <p>Каждый выпуск журнала - это глубокое погружение в мир человеческого общения, исследование того, как слова формируют нашу реальность.</p>
-        <p>В этом номере вы найдете эксклюзивные интервью, аналитические материалы и практические советы по улучшению навыков общения.</p>
-      </div>
+    <div id="journal-description" class="journal-description">
+      <div class="description-title">Описание</div>
+      <div id="description-content" class="description-content"></div>
     </div>
 
     <div class="journal-info">
@@ -206,7 +194,15 @@
     document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
     document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
     document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
-
+    
+    // Заполнение описания
+    const description = params.get('description');
+    if (description) {
+      document.getElementById('description-content').innerHTML = decodeURIComponent(description);
+    } else {
+      document.getElementById('journal-description').style.display = 'none';
+    }
+    
     // Загрузка фото
     function loadJournalPhoto() {
       const img = new Image();
