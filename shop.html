@@ -45,12 +45,17 @@
       padding: 20px;
     }
     
-    /* Галерея */
+    /* Обновленные стили галереи */
     .gallery-container {
       position: relative;
       width: 100%;
       margin-bottom: 20px;
+    }
+    
+    .gallery-images-wrapper {
+      position: relative;
       min-height: 300px;
+      overflow: hidden;
     }
     
     .gallery-image {
@@ -59,11 +64,16 @@
       object-fit: contain;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
     
     .gallery-image.active {
-      display: block;
+      opacity: 1;
+      position: relative;
     }
     
     .gallery-nav {
@@ -77,10 +87,16 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0;
-      transition: opacity 0.3s;
       cursor: pointer;
       z-index: 2;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      touch-action: manipulation;
+      opacity: 0;
+      transition: opacity 0.3s;
     }
     
     .gallery-container:hover .gallery-nav {
@@ -106,16 +122,16 @@
       stroke: white;
       stroke-width: 2;
     }
-
-    .gallery-nav-btn {
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-    }
     
     .no-image {
       text-align: center;
       padding: 40px 0;
       color: #999;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
     }
     
     /* Остальные стили */
@@ -205,7 +221,7 @@
       <div class="logo">Журнал "Игла"</div>
     </header>
 
-    <!-- Галерея -->
+    <!-- Обновленная структура галереи -->
     <div class="gallery-container">
       <div class="gallery-nav gallery-prev" id="gallery-prev">
         <svg viewBox="0 0 24 24" fill="none">
@@ -219,15 +235,16 @@
         </svg>
       </div>
       
-      <div id="gallery-images"></div>
-      
-      <div id="no-image" class="no-image">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
-          <path d="M3 16L10 9L13 12L16 9L21 16"/>
-          <rect x="3" y="3" width="18" height="18" rx="2"/>
-          <circle cx="8.5" cy="8.5" r="2.5"/>
-        </svg>
-        <p>Загрузка обложки...</p>
+      <div class="gallery-images-wrapper">
+        <div id="gallery-images"></div>
+        <div id="no-image" class="no-image">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
+            <path d="M3 16L10 9L13 12L16 9L21 16"/>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="2.5"/>
+          </svg>
+          <p>Загрузка обложки...</p>
+        </div>
       </div>
     </div>
 
@@ -254,12 +271,10 @@
     const params = new URLSearchParams(window.location.search);
     const journalId = params.get('journal');
     let currentImageIndex = 0;
-    let imagesLoaded = 0;
+    let images = [];
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
 
-    // Добавлено: Предзагрузка изображений
-    const preloadedImages = [];
-
+    // Функция для проверки существования изображения
     async function checkImageExists(url) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -269,6 +284,7 @@
       });
     }
 
+    // Функция для поиска изображения с любым расширением
     async function findImageWithAnyExtension(baseUrl) {
       for (const ext of supportedFormats) {
         const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
@@ -279,43 +295,39 @@
       return null;
     }
 
-    async function loadGallery() {
+    // Загрузка всех изображений
+    async function loadAllImages() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
       let imageNumber = 1;
       let hasImages = false;
 
       galleryContainer.innerHTML = '';
+      images = [];
 
+      // Находим все существующие изображения
       while (true) {
         const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
         const imageUrl = await findImageWithAnyExtension(baseUrl);
         if (!imageUrl) break;
 
-        // Изменено: Предварительная загрузка
-        const img = new Image();
+        const img = document.createElement('img');
+        img.className = 'gallery-image';
         img.src = imageUrl;
-        preloadedImages.push(img);
-
-        const galleryImg = document.createElement('img');
-        galleryImg.className = 'gallery-image';
-        galleryImg.id = `gallery-img-${imageNumber}`;
-        galleryImg.alt = `Изображение ${imageNumber}`;
-        galleryImg.src = imageUrl;
+        img.alt = `Изображение ${imageNumber}`;
+        img.dataset.index = imageNumber - 1;
         
-        galleryImg.onload = function() {
-          imagesLoaded++;
-          noImageElement.style.display = 'none';
-          // Изменено: Автоматическое отображение первого изображения
+        img.onload = function() {
+          galleryContainer.appendChild(img);
+          images.push(img);
+          
+          // Показываем первое изображение сразу после загрузки
           if (imageNumber === 1) {
-            galleryImg.classList.add('active');
-            galleryImg.style.display = 'block';
-          } else {
-            galleryImg.style.display = 'none';
+            img.classList.add('active');
+            noImageElement.style.display = 'none';
           }
         };
-        
-        galleryContainer.appendChild(galleryImg);
+
         imageNumber++;
         hasImages = true;
       }
@@ -330,55 +342,53 @@
           <p>Изображения недоступны</p>
         `;
       } else {
-        // Изменено: Оптимизация кнопок
-        const prevBtn = document.getElementById('gallery-prev');
-        const nextBtn = document.getElementById('gallery-next');
-        
-        prevBtn.addEventListener('click', (e) => {
-          e.preventDefault(); // Предотвращаем выделение
-          showPrevImage();
-        });
-        
-        nextBtn.addEventListener('click', (e) => {
-          e.preventDefault(); // Предотвращаем выделение
-          showNextImage();
-        });
-        
-        // Добавлено: Скрываем кнопки если изображение одно
-        if (imageNumber === 2) {
-          prevBtn.style.display = 'none';
-          nextBtn.style.display = 'none';
-        }
+        setupNavigation();
       }
     }
 
+    // Настройка навигации
+    function setupNavigation() {
+      const prevBtn = document.getElementById('gallery-prev');
+      const nextBtn = document.getElementById('gallery-next');
+      
+      // Скрываем кнопки если изображение только одно
+      if (images.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        return;
+      }
+      
+      // Обработчики кликов
+      prevBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showPrevImage();
+      }, {passive: false});
+      
+      nextBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        showNextImage();
+      }, {passive: false});
+    }
+
+    // Показать предыдущее изображение
     function showPrevImage() {
-      const images = document.querySelectorAll('.gallery-image');
       if (images.length <= 1) return;
       
       images[currentImageIndex].classList.remove('active');
-      images[currentImageIndex].style.display = 'none';
-      
       currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-      
       images[currentImageIndex].classList.add('active');
-      images[currentImageIndex].style.display = 'block';
     }
 
+    // Показать следующее изображение
     function showNextImage() {
-      const images = document.querySelectorAll('.gallery-image');
       if (images.length <= 1) return;
       
       images[currentImageIndex].classList.remove('active');
-      images[currentImageIndex].style.display = 'none';
-      
       currentImageIndex = (currentImageIndex + 1) % images.length;
-      
       images[currentImageIndex].classList.add('active');
-      images[currentImageIndex].style.display = 'block';
     }
 
-    // Остальной код без изменений...
+    // Обработка покупки
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
@@ -392,6 +402,7 @@
       }
     }
 
+    // Создание звездного неба
     function createStars() {
       const container = document.getElementById('stars-container');
       for (let i = 0; i < 200; i++) {
@@ -409,9 +420,10 @@
       }
     }
 
+    // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', async () => {
       createStars();
-      await loadGallery();
+      await loadAllImages();
       
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
       document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
@@ -420,6 +432,6 @@
       
       document.getElementById('buy-btn').addEventListener('click', handlePurchase);
     });
-</script>
+  </script>
 </body>
 </html>
