@@ -55,16 +55,17 @@
     
     .gallery-images-wrapper {
       position: relative;
-      min-height: 300px;
+      min-height: 280px; /* Уменьшена высота блока */
+      height: 280px; /* Фиксированная высота */
       display: flex;
       justify-content: center;
       align-items: center;
-      overflow: visible; 
+      overflow: visible;
     }
     
     .gallery-image {
       max-width: 100%;
-      max-height: 400px;
+      max-height: 280px; /* Соответствует высоте контейнера */
       width: auto;
       height: auto;
       object-fit: contain;
