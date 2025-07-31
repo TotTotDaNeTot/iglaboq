@@ -106,7 +106,6 @@
       background: #2c974b;
     }
 
-    /* Стили для блока с описанием */
     .journal-description {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
@@ -124,10 +123,11 @@
     
     .description-content {
       line-height: 1.5;
-      white-space: pre-line; /* Сохраняет переносы строк из текста */
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
     
-    /* Стили для скроллбара */
     .journal-description::-webkit-scrollbar {
       width: 6px;
     }
@@ -167,9 +167,8 @@
       </div>
     </div>
 
-    <!-- Блок с описанием -->
     <div class="journal-description">
-      
+      <div class="description-title" id="description-title"></div>
       <div class="description-content" id="description-content"></div>
     </div>
 
