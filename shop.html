@@ -55,7 +55,9 @@
     .gallery-images-wrapper {
       position: relative;
       min-height: 300px;
-      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
     
     .gallery-image {
@@ -67,8 +69,6 @@
       opacity: 0;
       transition: opacity 0.3s ease;
       position: absolute;
-      top: 0;
-      left: 0;
     }
     
     .gallery-image.active {
@@ -125,7 +125,6 @@
     
     .no-image {
       text-align: center;
-      padding: 40px 0;
       color: #999;
       position: absolute;
       top: 50%;
@@ -221,7 +220,6 @@
       <div class="logo">Журнал "Игла"</div>
     </header>
 
-    <!-- Обновленная структура галереи -->
     <div class="gallery-container">
       <div class="gallery-nav gallery-prev" id="gallery-prev">
         <svg viewBox="0 0 24 24" fill="none">
@@ -248,7 +246,6 @@
       </div>
     </div>
 
-    <!-- Описание и информация -->
     <div class="journal-description">
       <div class="description-content" id="description-content"></div>
     </div>
@@ -274,7 +271,6 @@
     let images = [];
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
 
-    // Функция для проверки существования изображения
     async function checkImageExists(url) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -284,7 +280,6 @@
       });
     }
 
-    // Функция для поиска изображения с любым расширением
     async function findImageWithAnyExtension(baseUrl) {
       for (const ext of supportedFormats) {
         const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
@@ -295,7 +290,6 @@
       return null;
     }
 
-    // Загрузка всех изображений
     async function loadAllImages() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
@@ -305,8 +299,25 @@
       galleryContainer.innerHTML = '';
       images = [];
 
-      // Находим все существующие изображения
-      while (true) {
+      // Загружаем первое изображение сразу
+      const firstImageUrl = await findImageWithAnyExtension(
+        `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/1`
+      );
+
+      if (firstImageUrl) {
+        const img = document.createElement('img');
+        img.className = 'gallery-image active';
+        img.src = firstImageUrl;
+        img.alt = `Изображение 1`;
+        galleryContainer.appendChild(img);
+        images.push(img);
+        noImageElement.style.display = 'none';
+        hasImages = true;
+        imageNumber++;
+      }
+
+      // Загружаем остальные изображения
+      while (hasImages) {
         const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
         const imageUrl = await findImageWithAnyExtension(baseUrl);
         if (!imageUrl) break;
@@ -315,21 +326,9 @@
         img.className = 'gallery-image';
         img.src = imageUrl;
         img.alt = `Изображение ${imageNumber}`;
-        img.dataset.index = imageNumber - 1;
-        
-        img.onload = function() {
-          galleryContainer.appendChild(img);
-          images.push(img);
-          
-          // Показываем первое изображение сразу после загрузки
-          if (imageNumber === 1) {
-            img.classList.add('active');
-            noImageElement.style.display = 'none';
-          }
-        };
-
+        galleryContainer.appendChild(img);
+        images.push(img);
         imageNumber++;
-        hasImages = true;
       }
 
       if (!hasImages) {
@@ -346,19 +345,16 @@
       }
     }
 
-    // Настройка навигации
     function setupNavigation() {
       const prevBtn = document.getElementById('gallery-prev');
       const nextBtn = document.getElementById('gallery-next');
       
-      // Скрываем кнопки если изображение только одно
       if (images.length <= 1) {
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
         return;
       }
       
-      // Обработчики кликов
       prevBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showPrevImage();
@@ -370,7 +366,6 @@
       }, {passive: false});
     }
 
-    // Показать предыдущее изображение
     function showPrevImage() {
       if (images.length <= 1) return;
       
@@ -379,7 +374,6 @@
       images[currentImageIndex].classList.add('active');
     }
 
-    // Показать следующее изображение
     function showNextImage() {
       if (images.length <= 1) return;
       
@@ -388,7 +382,6 @@
       images[currentImageIndex].classList.add('active');
     }
 
-    // Обработка покупки
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
@@ -402,7 +395,6 @@
       }
     }
 
-    // Создание звездного неба
     function createStars() {
       const container = document.getElementById('stars-container');
       for (let i = 0; i < 200; i++) {
@@ -420,10 +412,8 @@
       }
     }
 
-    // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', async () => {
       createStars();
-      await loadAllImages();
       
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
       document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
@@ -431,6 +421,11 @@
       document.getElementById('description-content').textContent = decodeURIComponent(params.get('description') || "Описание отсутствует");
       
       document.getElementById('buy-btn').addEventListener('click', handlePurchase);
+      
+      // Загружаем изображения после отображения основного контента
+      setTimeout(() => {
+        loadAllImages();
+      }, 0);
     });
   </script>
 </body>
