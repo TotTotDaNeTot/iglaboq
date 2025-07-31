@@ -115,12 +115,6 @@
       overflow-y: auto;
     }
     
-    .description-title {
-      font-size: 1.2rem;
-      margin-bottom: 10px;
-      font-weight: bold;
-    }
-    
     .description-content {
       line-height: 1.5;
       white-space: pre-wrap;
@@ -167,8 +161,8 @@
       </div>
     </div>
 
+    <!-- Упрощенный блок с описанием (без заголовка) -->
     <div class="journal-description">
-      <div class="description-title" id="description-title"></div>
       <div class="description-content" id="description-content"></div>
     </div>
 
@@ -197,9 +191,8 @@
     document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
     document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
     
-    // Заполнение описания
+    // Заполнение описания (теперь без заголовка)
     const description = params.get('description') ? decodeURIComponent(params.get('description')) : "Описание отсутствует";
-    document.getElementById('description-title').textContent = journalTitle;
     document.getElementById('description-content').textContent = description;
 
     // Загрузка фото
