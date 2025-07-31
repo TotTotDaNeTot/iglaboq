@@ -106,7 +106,7 @@
       background: #2c974b;
     }
 
-    /* Новый стиль для блока с описанием */
+    /* Стили для блока с описанием */
     .journal-description {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
@@ -124,6 +124,7 @@
     
     .description-content {
       line-height: 1.5;
+      white-space: pre-line; /* Сохраняет переносы строк из текста */
     }
     
     /* Стили для скроллбара */
@@ -166,9 +167,10 @@
       </div>
     </div>
 
-    <div id="journal-description" class="journal-description">
-      <div class="description-title">Описание</div>
-      <div id="description-content" class="description-content"></div>
+    <!-- Блок с описанием -->
+    <div class="journal-description">
+      <div class="description-title" id="description-title"></div>
+      <div class="description-content" id="description-content"></div>
     </div>
 
     <div class="journal-info">
@@ -191,18 +193,16 @@
     const journalId = params.get('journal');
 
     // Заполнение данных
-    document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
+    const journalTitle = decodeURIComponent(params.get('title') || "Журнал");
+    document.getElementById('journal-title').textContent = journalTitle;
     document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
     document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
     
     // Заполнение описания
-    const description = params.get('description');
-    if (description) {
-      document.getElementById('description-content').innerHTML = decodeURIComponent(description);
-    } else {
-      document.getElementById('journal-description').style.display = 'none';
-    }
-    
+    const description = params.get('description') ? decodeURIComponent(params.get('description')) : "Описание отсутствует";
+    document.getElementById('description-title').textContent = journalTitle;
+    document.getElementById('description-content').textContent = description;
+
     // Загрузка фото
     function loadJournalPhoto() {
       const img = new Image();
