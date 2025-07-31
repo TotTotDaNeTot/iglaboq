@@ -252,6 +252,9 @@
     let currentImageIndex = 0;
     let imagesLoaded = 0;
 
+    // Поддерживаемые форматы изображений (в порядке приоритета)
+    const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
+
     // Функция проверки существования изображения
     async function checkImageExists(url) {
       return new Promise((resolve) => {
@@ -262,7 +265,18 @@
       });
     }
 
-    // Загрузка галереи с автоматическим определением количества изображений
+    // Функция для поиска существующего изображения
+    async function findImageWithAnyExtension(baseUrl) {
+      for (const ext of supportedFormats) {
+        const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
+        if (await checkImageExists(imageUrl)) {
+          return imageUrl;
+        }
+      }
+      return null;
+    }
+
+    // Загрузка галереи с автоматическим определением количества и формата изображений
     async function loadGallery() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
@@ -274,11 +288,11 @@
 
       // Загружаем изображения пока они существуют
       while (true) {
-        const imageUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}.jpg?t=${Date.now()}`;
+        const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
         
-        // Проверяем существование изображения
-        const exists = await checkImageExists(imageUrl);
-        if (!exists) break;
+        // Ищем изображение с любым поддерживаемым расширением
+        const imageUrl = await findImageWithAnyExtension(baseUrl);
+        if (!imageUrl) break;
 
         // Создаем элемент изображения
         const img = new Image();
