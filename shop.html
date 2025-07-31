@@ -55,20 +55,26 @@
     .gallery-images-wrapper {
       position: relative;
       min-height: 300px;
-      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: visible; 
     }
     
     .gallery-image {
-      width: 100%;
+      max-width: 100%;
       max-height: 400px;
+      width: auto;
+      height: auto;
       object-fit: contain;
       border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       opacity: 0;
       transition: opacity 0.3s ease;
       position: absolute;
-      top: 0;
-      left: 0;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
     }
     
     .gallery-image.active {
