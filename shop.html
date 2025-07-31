@@ -106,6 +106,11 @@
       stroke: white;
       stroke-width: 2;
     }
+
+    .gallery-nav-btn {
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
     
     .no-image {
       text-align: center;
@@ -246,16 +251,15 @@
       Telegram.WebApp.MainButton.setText("Купить").show().onClick(handlePurchase);
     }
 
-    // Получение параметров
     const params = new URLSearchParams(window.location.search);
     const journalId = params.get('journal');
     let currentImageIndex = 0;
     let imagesLoaded = 0;
-
-    // Поддерживаемые форматы изображений (в порядке приоритета)
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
 
-    // Функция проверки существования изображения
+    // Добавлено: Предзагрузка изображений
+    const preloadedImages = [];
+
     async function checkImageExists(url) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -265,7 +269,6 @@
       });
     }
 
-    // Функция для поиска существующего изображения
     async function findImageWithAnyExtension(baseUrl) {
       for (const ext of supportedFormats) {
         const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
@@ -276,47 +279,47 @@
       return null;
     }
 
-    // Загрузка галереи с автоматическим определением количества и формата изображений
     async function loadGallery() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
       let imageNumber = 1;
       let hasImages = false;
 
-      // Очищаем контейнер перед загрузкой
       galleryContainer.innerHTML = '';
 
-      // Загружаем изображения пока они существуют
       while (true) {
         const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
-        
-        // Ищем изображение с любым поддерживаемым расширением
         const imageUrl = await findImageWithAnyExtension(baseUrl);
         if (!imageUrl) break;
 
-        // Создаем элемент изображения
+        // Изменено: Предварительная загрузка
         const img = new Image();
-        img.className = 'gallery-image';
-        img.id = `gallery-img-${imageNumber}`;
-        img.alt = `Изображение ${imageNumber}`;
         img.src = imageUrl;
+        preloadedImages.push(img);
+
+        const galleryImg = document.createElement('img');
+        galleryImg.className = 'gallery-image';
+        galleryImg.id = `gallery-img-${imageNumber}`;
+        galleryImg.alt = `Изображение ${imageNumber}`;
+        galleryImg.src = imageUrl;
         
-        img.onload = function() {
+        galleryImg.onload = function() {
           imagesLoaded++;
           noImageElement.style.display = 'none';
-          if (imageNumber === 1) img.classList.add('active');
+          // Изменено: Автоматическое отображение первого изображения
+          if (imageNumber === 1) {
+            galleryImg.classList.add('active');
+            galleryImg.style.display = 'block';
+          } else {
+            galleryImg.style.display = 'none';
+          }
         };
         
-        img.onerror = function() {
-          console.error(`Ошибка загрузки: ${img.src}`);
-        };
-        
-        galleryContainer.appendChild(img);
+        galleryContainer.appendChild(galleryImg);
         imageNumber++;
         hasImages = true;
       }
 
-      // Если изображений нет, показываем сообщение
       if (!hasImages) {
         noImageElement.innerHTML = `
           <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
@@ -327,31 +330,55 @@
           <p>Изображения недоступны</p>
         `;
       } else {
-        // Инициализация навигации только если есть изображения
-        document.getElementById('gallery-prev').addEventListener('click', showPrevImage);
-        document.getElementById('gallery-next').addEventListener('click', showNextImage);
+        // Изменено: Оптимизация кнопок
+        const prevBtn = document.getElementById('gallery-prev');
+        const nextBtn = document.getElementById('gallery-next');
+        
+        prevBtn.addEventListener('click', (e) => {
+          e.preventDefault(); // Предотвращаем выделение
+          showPrevImage();
+        });
+        
+        nextBtn.addEventListener('click', (e) => {
+          e.preventDefault(); // Предотвращаем выделение
+          showNextImage();
+        });
+        
+        // Добавлено: Скрываем кнопки если изображение одно
+        if (imageNumber === 2) {
+          prevBtn.style.display = 'none';
+          nextBtn.style.display = 'none';
+        }
       }
     }
 
     function showPrevImage() {
       const images = document.querySelectorAll('.gallery-image');
-      if (images.length === 0) return;
+      if (images.length <= 1) return;
       
       images[currentImageIndex].classList.remove('active');
+      images[currentImageIndex].style.display = 'none';
+      
       currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+      
       images[currentImageIndex].classList.add('active');
+      images[currentImageIndex].style.display = 'block';
     }
 
     function showNextImage() {
       const images = document.querySelectorAll('.gallery-image');
-      if (images.length === 0) return;
+      if (images.length <= 1) return;
       
       images[currentImageIndex].classList.remove('active');
+      images[currentImageIndex].style.display = 'none';
+      
       currentImageIndex = (currentImageIndex + 1) % images.length;
+      
       images[currentImageIndex].classList.add('active');
+      images[currentImageIndex].style.display = 'block';
     }
 
-    // Обработка покупки
+    // Остальной код без изменений...
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
@@ -365,7 +392,6 @@
       }
     }
 
-    // Звездное небо
     function createStars() {
       const container = document.getElementById('stars-container');
       for (let i = 0; i < 200; i++) {
@@ -383,12 +409,10 @@
       }
     }
 
-    // Инициализация
     document.addEventListener('DOMContentLoaded', async () => {
       createStars();
       await loadGallery();
       
-      // Заполнение данных
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
       document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
       document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
