@@ -74,7 +74,7 @@
     .gallery-container {
       position: relative;
       width: 100%;
-      margin-bottom: 60px;
+      margin-bottom: 40px;
       overflow: hidden;
     }
     .gallery-images-wrapper {
@@ -147,10 +147,13 @@
     
     /* Информация о товаре */
     .journal-info {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 25px;
-      margin-bottom: 30px;
+      background: rgba(0, 0, 0, 0.5); /* Увеличиваем прозрачность фона */
+      border-radius: 12px; /* Увеличиваем скругление углов */
+      padding: 30px;
+      margin-bottom: 40px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6); /* Добавляем более выраженную тень */
+      border: 1px solid rgba(255, 255, 255, 0.1); /* Добавляем тонкую светлую границу */
+      backdrop-filter: blur(10px); /* Добавляем легкое размытие фона */
     }
     .journal-title {
       font-size: 1.5rem;
