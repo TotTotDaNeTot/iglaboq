@@ -1,0 +1,1 @@
+web: gunicorn backend.payment_handler:app
