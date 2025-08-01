@@ -457,7 +457,9 @@
     // Обновление цены
     function updatePrice() {
       const totalPrice = basePrice * quantity;
-      document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}`;
+      const priceElement = document.getElementById('journal-price');
+      // Удаляем ВСЕ нечисловые символы (кроме точки для десятичных)
+      priceElement.textContent = `Цена: ${totalPrice.toFixed(2).replace(/[^\d.]/g, '')}`;
     }
 
     // Обработка покупки
