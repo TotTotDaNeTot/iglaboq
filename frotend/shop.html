@@ -543,11 +543,9 @@
     });
 
     // Функция создания платежа в ЮKassa
+    const isTestMode = true; // Всегда тестовый режим для WebApp
+
     async function createYooKassaPayment(orderData) {
-      // Добавляем флаг тестового режима
-      const isTestMode = window.location.hostname === 'localhost' || 
-                        window.location.hostname.includes('test');
-      
       const paymentData = {
         amount: {
           value: orderData.total.toFixed(2),
@@ -561,7 +559,7 @@
         description: `Заказ журнала "${orderData.journal_title}"`,
         metadata: {
           ...orderData,
-          is_test: isTestMode  // Добавляем флаг теста в метаданные
+          is_test: true // Явно указываем тестовый режим
         }
       };
 
@@ -569,8 +567,7 @@
         const response = await fetch('https://your-server.com/create_payment', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'X-Test-Mode': isTestMode  // Передаем в заголовке
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             payment_data: paymentData,
@@ -580,7 +577,6 @@
         
         if (!response.ok) throw new Error('Ошибка сервера');
         return await response.json();
-        
       } catch (error) {
         console.error('Payment error:', error);
         throw error;
