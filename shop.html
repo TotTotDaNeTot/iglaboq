@@ -6,7 +6,6 @@
   <title>Журнал</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    /* Все ваши стили остаются без изменений */
     * {
       margin: 0;
       padding: 0;
@@ -46,10 +45,12 @@
       margin: 0 auto;
       padding: 25px;
     }
+    
+    /* Стили галереи */
     .gallery-container {
       position: relative;
       width: 100%;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
     .gallery-images-wrapper {
       position: relative;
@@ -136,6 +137,49 @@
       width: 100%;
       z-index: 0;
     }
+    
+    /* Стили для счетчика и цены */
+    .price-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .price-icon {
+      margin-left: 8px;
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+    }
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .quantity-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .quantity-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .quantity-value {
+      margin: 0 15px;
+      font-size: 18px;
+      min-width: 20px;
+      text-align: center;
+    }
+    
+    /* Остальные стили */
     header {
       display: flex;
       justify-content: space-between;
@@ -155,7 +199,7 @@
     }
     .journal-title {
       font-size: 1.5rem;
-      margin-bottom: 10px;
+      margin-bottom: 15px;
     }
     .journal-meta {
       margin-bottom: 10px;
@@ -170,7 +214,7 @@
       border-radius: 6px;
       font-size: 1rem;
       font-weight: bold;
-      margin-top: 30px;
+      margin-top: 20px;
       cursor: pointer;
       transition: background 0.2s;
     }
@@ -248,7 +292,20 @@
     <div class="journal-info">
       <h1 id="journal-title" class="journal-title"></h1>
       <div id="journal-year" class="journal-meta"></div>
-      <div id="journal-price" class="journal-meta"></div>
+      
+      <div class="price-container">
+        <span id="journal-price" class="journal-meta"></span>
+        <svg class="price-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      
+      <div class="quantity-control">
+        <button class="quantity-btn" id="quantity-decrease">-</button>
+        <span class="quantity-value" id="quantity">1</span>
+        <button class="quantity-btn" id="quantity-increase">+</button>
+      </div>
+      
       <button id="buy-btn" class="buy-btn">Купить сейчас</button>
     </div>
   </div>
@@ -266,21 +323,18 @@
     let images = [];
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let touchStartX = 0;
+    let quantity = 1;
+    let basePrice = 0;
 
-    // Функция загрузки изображений с предзагрузкой
+    // Функции для работы с галереей
     async function loadAllImages() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
       
-      // Показываем сообщение о загрузке
-      noImageElement.style.display = 'block';
       galleryContainer.innerHTML = '';
       images = [];
       
-      // Загружаем изображения последовательно
       let imageNumber = 1;
-      let loadedCount = 0;
-      
       while (true) {
         const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
         const imageUrl = await findImageWithAnyExtension(baseUrl);
@@ -294,10 +348,8 @@
         img.onload = function() {
           galleryContainer.appendChild(img);
           images.push(img);
-          loadedCount++;
           
-          // Первое изображение делаем активным
-          if (loadedCount === 1) {
+          if (imageNumber === 1) {
             img.classList.add('active');
             noImageElement.style.display = 'none';
           }
@@ -317,45 +369,20 @@
         `;
       }
       
-      // Включаем навигацию
       setupNavigation();
     }
 
-    // Поиск изображения с любым расширением
-    async function findImageWithAnyExtension(baseUrl) {
-      for (const ext of supportedFormats) {
-        const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
-        if (await checkImageExists(imageUrl)) {
-          return imageUrl;
-        }
-      }
-      return null;
-    }
-
-    // Проверка существования изображения
-    async function checkImageExists(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url;
-      });
-    }
-
-    // Настройка навигации
     function setupNavigation() {
       const prevBtn = document.getElementById('gallery-prev');
       const nextBtn = document.getElementById('gallery-next');
       const galleryWrapper = document.getElementById('gallery-wrapper');
       
-      // Скрываем кнопки если изображение одно
       if (images.length <= 1) {
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
         return;
       }
       
-      // Обработчики кликов
       prevBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showPrevImage();
@@ -366,7 +393,6 @@
         showNextImage();
       });
       
-      // Обработчики свайпов
       galleryWrapper.addEventListener('touchstart', (e) => {
         touchStartX = e.touches[0].clientX;
       }, {passive: true});
@@ -382,7 +408,6 @@
       }, {passive: true});
     }
 
-    // Показать предыдущее изображение
     function showPrevImage() {
       if (images.length <= 1) return;
       
@@ -391,7 +416,6 @@
       images[currentImageIndex].classList.add('active');
     }
 
-    // Показать следующее изображение
     function showNextImage() {
       if (images.length <= 1) return;
       
@@ -400,21 +424,80 @@
       images[currentImageIndex].classList.add('active');
     }
 
-    // Обработка покупки
+    // Функции для работы с ценой и количеством
+    function updatePrice() {
+      const totalPrice = basePrice * quantity;
+      document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
+    }
+
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
         title: document.getElementById('journal-title').textContent,
-        price: document.getElementById('journal-price').textContent
+        price: basePrice,
+        quantity: quantity,
+        total: basePrice * quantity
       };
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.sendData(JSON.stringify(purchaseData));
       } else {
-        alert(`Покупка: ${purchaseData.title}\n${purchaseData.price}`);
+        alert(`Покупка: ${purchaseData.title}\nКоличество: ${purchaseData.quantity}\nИтого: ${purchaseData.total}₽`);
       }
     }
 
-    // Создание звездного неба
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
+      // Заполняем информацию о журнале
+      document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
+      document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+      
+      // Устанавливаем базовую цену
+      basePrice = parseFloat(params.get('price')) || 0;
+      updatePrice();
+      
+      document.getElementById('description-content').textContent = decodeURIComponent(params.get('description') || "Описание отсутствует");
+      
+      // Обработчики кнопок количества
+      document.getElementById('quantity-decrease').addEventListener('click', () => {
+        if (quantity > 1) {
+          quantity--;
+          document.getElementById('quantity').textContent = quantity;
+          updatePrice();
+        }
+      });
+      
+      document.getElementById('quantity-increase').addEventListener('click', () => {
+        quantity++;
+        document.getElementById('quantity').textContent = quantity;
+        updatePrice();
+      });
+      
+      document.getElementById('buy-btn').addEventListener('click', handlePurchase);
+      
+      // Загружаем изображения
+      loadAllImages();
+    });
+
+    // Вспомогательные функции
+    async function findImageWithAnyExtension(baseUrl) {
+      for (const ext of supportedFormats) {
+        const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
+        if (await checkImageExists(imageUrl)) {
+          return imageUrl;
+        }
+      }
+      return null;
+    }
+
+    async function checkImageExists(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
+    }
+
     function createStars() {
       const container = document.getElementById('stars-container');
       for (let i = 0; i < 200; i++) {
@@ -431,23 +514,6 @@
         container.appendChild(star);
       }
     }
-
-    // Инициализация при загрузке страницы
-    document.addEventListener('DOMContentLoaded', () => {
-      createStars();
-      
-      // Заполняем информацию о журнале
-      document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
-      document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-      document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
-      document.getElementById('description-content').textContent = decodeURIComponent(params.get('description') || "Описание отсутствует");
-      
-      // Назначаем обработчик кнопки покупки
-      document.getElementById('buy-btn').addEventListener('click', handlePurchase);
-      
-      // Загружаем изображения
-      loadAllImages();
-    });
   </script>
 </body>
 </html>
