@@ -478,7 +478,7 @@
       document.getElementById('stars-container').style.display = 'none';
       
       if (window.Telegram?.WebApp) {
-        Telegram.WebApp.MainButton.setText("Оформить заказ").show();
+        Telegram.WebApp.MainButton.setText("Оформить заказ").show().onClick(processOrder);
       }
     }
 
@@ -488,26 +488,32 @@
       document.getElementById('stars-container').style.display = 'block';
       
       if (window.Telegram?.WebApp) {
-        Telegram.WebApp.MainButton.setText("Купить").show();
+        Telegram.WebApp.MainButton.setText("Купить").show().onClick(goToOrderPage);
       }
     }
 
-    // Обработка формы и создание платежа
-    document.getElementById('order-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
+    // Обработка формы
+    async function processOrder() {
+      const form = document.getElementById('order-form');
       const emailInput = document.getElementById('email');
-      if (!emailInput.validity.valid) {
-        document.getElementById('email-error').style.display = 'block';
-        emailInput.focus();
+      
+      if (!form.checkValidity()) {
+        if (!emailInput.validity.valid) {
+          document.getElementById('email-error').style.display = 'block';
+          emailInput.focus();
+        }
         return;
       }
-      
-      const formData = new FormData(e.target);
+
+      if (window.Telegram?.WebApp) {
+        Telegram.WebApp.MainButton.showProgress();
+      }
+
+      const formData = new FormData(form);
       const orderData = {
         product_id: journalId,
         quantity: quantity,
-        total: basePrice * quantity,
+        amount: basePrice * quantity,
         city: formData.get('city'),
         postcode: formData.get('postcode'),
         phone: formData.get('phone'),
@@ -517,78 +523,43 @@
         journal_title: document.getElementById('journal-title').textContent,
         journal_year: document.getElementById('journal-year').textContent.replace('Год выпуска: ', '')
       };
-      
-      // Сохраняем в localStorage
-      localStorage.setItem('current_order', JSON.stringify(orderData));
-      
-      // Создаем платеж в ЮKassa
-      try {
-        const response = await createYooKassaPayment(orderData);
-        
-        if (response && response.confirmation_url) {
-          // Открываем страницу оплаты в новом окне
-          window.open(response.confirmation_url, '_blank');
-          
-          // Закрываем WebApp после начала оплаты
-          if (window.Telegram?.WebApp) {
-            Telegram.WebApp.close();
-          }
-        } else {
-          alert('Ошибка при создании платежа');
-        }
-      } catch (error) {
-        console.error('Payment error:', error);
-        alert('Произошла ошибка при обработке платежа');
-      }
-    });
-
-    // Функция создания платежа в ЮKassa
-    const isTestMode = true; // Всегда тестовый режим для WebApp
-
-    async function createYooKassaPayment(orderData) {
-      const paymentData = {
-        amount: {
-          value: orderData.total.toFixed(2),
-          currency: 'RUB'
-        },
-        capture: true,
-        confirmation: {
-          type: 'redirect',
-          return_url: 'https://t.me/CocoCamBot'
-        },
-        description: `Заказ журнала "${orderData.journal_title}"`,
-        metadata: {
-          ...orderData,
-          is_test: true // Явно указываем тестовый режим
-        }
-      };
 
       try {
         const response = await fetch('https://your-server.com/create_payment', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Test-Mode': 'true'
           },
-          body: JSON.stringify({
-            payment_data: paymentData,
-            order_data: orderData
-          })
+          body: JSON.stringify(orderData)
         });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const paymentData = await response.json();
         
-        if (!response.ok) throw new Error('Ошибка сервера');
-        return await response.json();
+        if (window.Telegram?.WebApp) {
+          Telegram.WebApp.openInvoice(paymentData.confirmation_url, (status) => {
+            if (status === 'paid') {
+              Telegram.WebApp.close();
+            } else {
+              Telegram.WebApp.MainButton.hideProgress();
+              alert('Платеж не был завершен');
+            }
+          });
+        } else {
+          window.open(paymentData.confirmation_url, '_blank');
+        }
       } catch (error) {
         console.error('Payment error:', error);
-        throw error;
+        if (window.Telegram?.WebApp) {
+          Telegram.WebApp.MainButton.hideProgress();
+        }
+        alert('Произошла ошибка при обработке платежа: ' + error.message);
       }
     }
-
-    // Валидация email в реальном времени
-    document.getElementById('email').addEventListener('input', function() {
-      if (this.validity.valid) {
-        document.getElementById('email-error').style.display = 'none';
-      }
-    });
 
     // Инициализация
     document.addEventListener('DOMContentLoaded', () => {
@@ -615,6 +586,11 @@
       document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
       document.getElementById('back-to-product').addEventListener('click', goToProductPage);
       
+      document.getElementById('order-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        processOrder();
+      });
+      
       loadAllImages();
     });
 
@@ -635,6 +611,6 @@
         container.appendChild(star);
       }
     }
-</script>
+  </script>
 </body>
 </html>
