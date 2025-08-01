@@ -293,16 +293,56 @@
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let touchStartX = 0;
 
-    // Функции для работы с изображениями
-    async function checkImageExists(url) {
-      return new Promise((resolve) => {
+    // Упрощенная функция загрузки изображений
+    async function loadAllImages() {
+      const galleryContainer = document.getElementById('gallery-images');
+      const noImageElement = document.getElementById('no-image');
+      
+      galleryContainer.innerHTML = '';
+      images = [];
+      
+      // Загружаем все изображения сразу
+      let imageNumber = 1;
+      while (true) {
+        const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
+        const imageUrl = await findImageWithAnyExtension(baseUrl);
+        if (!imageUrl) break;
+
         const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url;
-      });
+        img.className = 'gallery-image';
+        img.src = imageUrl;
+        img.alt = `Изображение ${imageNumber}`;
+        
+        img.onload = function() {
+          galleryContainer.appendChild(img);
+          images.push(img);
+          
+          // Первое изображение делаем активным сразу
+          if (imageNumber === 1) {
+            img.classList.add('active');
+            noImageElement.style.display = 'none';
+          }
+        };
+        
+        imageNumber++;
+      }
+
+      if (images.length === 0) {
+        noImageElement.innerHTML = `
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+            <path d="M3 16L10 9L13 12L16 9L21 16"/>
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="2.5"/>
+          </svg>
+          <p>Изображения недоступны</p>
+        `;
+      }
+      
+      // Включаем навигацию сразу
+      setupNavigation();
     }
 
+    // Остальные функции без изменений
     async function findImageWithAnyExtension(baseUrl) {
       for (const ext of supportedFormats) {
         const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
@@ -313,59 +353,13 @@
       return null;
     }
 
-    async function loadAllImages() {
-      const galleryContainer = document.getElementById('gallery-images');
-      const noImageElement = document.getElementById('no-image');
-      let imageNumber = 1;
-      let hasImages = false;
-
-      galleryContainer.innerHTML = '';
-      images = [];
-
-      // Загружаем первое изображение сразу
-      const firstImageUrl = await findImageWithAnyExtension(
-        `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/1`
-      );
-
-      if (firstImageUrl) {
-        const img = document.createElement('img');
-        img.className = 'gallery-image active';
-        img.src = firstImageUrl;
-        img.alt = `Изображение 1`;
-        galleryContainer.appendChild(img);
-        images.push(img);
-        noImageElement.style.display = 'none';
-        hasImages = true;
-        imageNumber++;
-      }
-
-      // Загружаем остальные изображения
-      while (hasImages) {
-        const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
-        const imageUrl = await findImageWithAnyExtension(baseUrl);
-        if (!imageUrl) break;
-
-        const img = document.createElement('img');
-        img.className = 'gallery-image';
-        img.src = imageUrl;
-        img.alt = `Изображение ${imageNumber}`;
-        galleryContainer.appendChild(img);
-        images.push(img);
-        imageNumber++;
-      }
-
-      if (!hasImages) {
-        noImageElement.innerHTML = `
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-            <path d="M3 16L10 9L13 12L16 9L21 16"/>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="2.5"/>
-          </svg>
-          <p>Изображения недоступны</p>
-        `;
-      } else {
-        setupNavigation();
-      }
+    async function checkImageExists(url) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(true);
+        img.onerror = () => resolve(false);
+        img.src = url;
+      });
     }
 
     function setupNavigation() {
@@ -373,6 +367,7 @@
       const nextBtn = document.getElementById('gallery-next');
       const galleryWrapper = document.getElementById('gallery-wrapper');
       
+      // Скрываем кнопки если изображение одно
       if (images.length <= 1) {
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
@@ -383,12 +378,12 @@
       prevBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showPrevImage();
-      }, {passive: false});
+      });
       
       nextBtn.addEventListener('click', (e) => {
         e.preventDefault();
         showNextImage();
-      }, {passive: false});
+      });
       
       // Обработчики свайпов
       galleryWrapper.addEventListener('touchstart', (e) => {
@@ -399,12 +394,9 @@
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
         
-        if (Math.abs(diff) > 50) { // Порог свайпа
-          if (diff > 0) {
-            showNextImage(); // Свайп влево
-          } else {
-            showPrevImage(); // Свайп вправо
-          }
+        if (Math.abs(diff) > 50) {
+          if (diff > 0) showNextImage();
+          else showPrevImage();
         }
       }, {passive: true});
     }
@@ -412,25 +404,28 @@
     function showPrevImage() {
       if (images.length <= 1) return;
       
-      images[currentImageIndex].classList.add('fading-out');
-      setTimeout(() => {
-        images[currentImageIndex].classList.remove('active', 'fading-out');
-        currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-        images[currentImageIndex].classList.add('active');
-      }, 50);
+      const currentImg = images[currentImageIndex];
+      const nextIndex = (currentImageIndex - 1 + images.length) % images.length;
+      const nextImg = images[nextIndex];
+      
+      currentImg.classList.remove('active');
+      nextImg.classList.add('active');
+      currentImageIndex = nextIndex;
     }
 
     function showNextImage() {
       if (images.length <= 1) return;
       
-      images[currentImageIndex].classList.add('fading-out');
-      setTimeout(() => {
-        images[currentImageIndex].classList.remove('active', 'fading-out');
-        currentImageIndex = (currentImageIndex + 1) % images.length;
-        images[currentImageIndex].classList.add('active');
-      }, 50);
+      const currentImg = images[currentImageIndex];
+      const nextIndex = (currentImageIndex + 1) % images.length;
+      const nextImg = images[nextIndex];
+      
+      currentImg.classList.remove('active');
+      nextImg.classList.add('active');
+      currentImageIndex = nextIndex;
     }
 
+    // Остальные функции без изменений
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
@@ -461,7 +456,8 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    // Инициализация
+    document.addEventListener('DOMContentLoaded', () => {
       createStars();
       
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
@@ -471,9 +467,7 @@
       
       document.getElementById('buy-btn').addEventListener('click', handlePurchase);
       
-      setTimeout(() => {
-        loadAllImages();
-      }, 0);
+      loadAllImages();
     });
   </script>
 </body>
