@@ -10,6 +10,10 @@
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -77,6 +81,7 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.3);
       display: none;
       position: absolute;
+      -webkit-user-drag: none;
     }
     .gallery-image.active {
       display: block;
@@ -94,6 +99,8 @@
       justify-content: center;
       cursor: pointer;
       z-index: 2;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
       opacity: 0.8;
     }
     .gallery-nav:hover {
@@ -224,16 +231,12 @@
   </style>
 </head>
 <body>
-  <!-- Звездное небо (будет скрыто на странице заказа) -->
+  <!-- Звездное небо (скрывается на странице заказа) -->
   <div class="stars-container" id="stars-container"></div>
 
   <div class="content">
     <!-- Страница товара -->
     <div id="product-page" class="page active">
-      <header>
-        <div class="logo">Журнал "Игла"</div>
-      </header>
-
       <div class="gallery-container">
         <div class="gallery-nav gallery-prev" id="gallery-prev">
           <svg viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6"/></svg>
@@ -318,6 +321,7 @@
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
+    let isAnimating = false; // Флаг для предотвращения быстрых повторных нажатий
 
     // Загрузка изображений
     async function loadAllImages() {
@@ -391,8 +395,13 @@
         return;
       }
       
-      prevBtn.addEventListener('click', showPrevImage);
-      nextBtn.addEventListener('click', showNextImage);
+      prevBtn.addEventListener('click', () => {
+        if (!isAnimating) showPrevImage();
+      });
+      
+      nextBtn.addEventListener('click', () => {
+        if (!isAnimating) showNextImage();
+      });
       
       // Свайпы
       const galleryWrapper = document.getElementById('gallery-wrapper');
@@ -403,6 +412,7 @@
       }, {passive: true});
       
       galleryWrapper.addEventListener('touchend', (e) => {
+        if (isAnimating) return;
         const touchEndX = e.changedTouches[0].clientX;
         const diff = touchStartX - touchEndX;
         if (Math.abs(diff) > 50) diff > 0 ? showNextImage() : showPrevImage();
@@ -410,17 +420,29 @@
     }
 
     function showPrevImage() {
-      if (images.length <= 1) return;
+      if (images.length <= 1 || isAnimating) return;
+      
+      isAnimating = true;
       images[currentImageIndex].classList.remove('active');
       currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
       images[currentImageIndex].classList.add('active');
+      
+      setTimeout(() => {
+        isAnimating = false;
+      }, 300);
     }
 
     function showNextImage() {
-      if (images.length <= 1) return;
+      if (images.length <= 1 || isAnimating) return;
+      
+      isAnimating = true;
       images[currentImageIndex].classList.remove('active');
       currentImageIndex = (currentImageIndex + 1) % images.length;
       images[currentImageIndex].classList.add('active');
+      
+      setTimeout(() => {
+        isAnimating = false;
+      }, 300);
     }
 
     function updatePrice() {
@@ -432,7 +454,7 @@
     function goToOrderPage() {
       document.getElementById('product-page').classList.remove('active');
       document.getElementById('order-page').classList.add('active');
-      document.getElementById('stars-container').style.display = 'none'; // Скрываем звезды на странице заказа
+      document.getElementById('stars-container').style.display = 'none';
       
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.MainButton.setText("Оформить заказ").show();
@@ -442,7 +464,7 @@
     function goToProductPage() {
       document.getElementById('order-page').classList.remove('active');
       document.getElementById('product-page').classList.add('active');
-      document.getElementById('stars-container').style.display = 'block'; // Показываем звезды снова
+      document.getElementById('stars-container').style.display = 'block';
       
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.MainButton.setText("Купить").show();
@@ -473,14 +495,11 @@
         tg_username: window.Telegram?.WebApp.initDataUnsafe?.user?.username
       };
       
-      // Сохраняем в localStorage
       localStorage.setItem('current_order', JSON.stringify(orderData));
-      
-      // Здесь будет редирект на ЮKassa
       alert('Заказ оформлен! Данные: ' + JSON.stringify(orderData, null, 2));
     });
 
-    // Валидация email в реальном времени
+    // Валидация email
     document.getElementById('email').addEventListener('input', function() {
       if (this.validity.valid) {
         document.getElementById('email-error').style.display = 'none';
@@ -491,12 +510,10 @@
     document.addEventListener('DOMContentLoaded', () => {
       createStars();
       
-      // Заполняем информацию о товаре
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
       document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
       updatePrice();
       
-      // Кнопки количества
       document.getElementById('quantity-decrease').addEventListener('click', () => {
         if (quantity > 1) {
           quantity--;
@@ -511,11 +528,9 @@
         updatePrice();
       });
       
-      // Навигация
       document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
       document.getElementById('back-to-product').addEventListener('click', goToProductPage);
       
-      // Загружаем изображения
       loadAllImages();
     });
 
