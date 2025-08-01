@@ -290,9 +290,7 @@
       
       <div class="price-container">
         <span id="journal-price" class="journal-meta"></span>
-        <svg class="price-icon" viewBox="0 0 24 24" fill="none">
-          <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-        </svg>
+
       </div>
       
       <div class="quantity-control">
@@ -457,9 +455,7 @@
     // Обновление цены
     function updatePrice() {
       const totalPrice = basePrice * quantity;
-      const priceElement = document.getElementById('journal-price');
-      // Удаляем ВСЕ нечисловые символы (кроме точки для десятичных)
-      priceElement.textContent = `Цена: ${totalPrice.toFixed(2).replace(/[^\d.]/g, '')}`;
+      document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
     }
 
     // Обработка покупки
