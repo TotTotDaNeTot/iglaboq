@@ -45,14 +45,11 @@
       margin: 0 auto;
       padding: 25px;
     }
-    
-    /* Обновленные стили галереи */
     .gallery-container {
       position: relative;
       width: 100%;
       margin-bottom: 40px;
     }
-    
     .gallery-images-wrapper {
       position: relative;
       min-height: 400px;
@@ -61,9 +58,8 @@
       justify-content: center;
       align-items: center;
       overflow: visible;
-      touch-action: pan-y; /* Разрешаем вертикальные свайпы */
+      touch-action: pan-y;
     }
-    
     .gallery-image {
       max-width: 100%;
       max-height: 400px;
@@ -79,12 +75,10 @@
       left: 50%;
       transform: translate(-50%, -50%);
     }
-    
     .gallery-image.active {
       opacity: 1;
       z-index: 1;
     }
-    
     .gallery-nav {
       position: absolute;
       top: 50%;
@@ -106,8 +100,6 @@
       touch-action: manipulation;
       opacity: 0.8;
     }
-    
-    /* Для устройств с мышкой */
     @media (hover: hover) {
       .gallery-nav {
         opacity: 0;
@@ -117,27 +109,22 @@
         opacity: 0.8;
       }
     }
-    
     .gallery-nav:hover {
       opacity: 1 !important;
       background: rgba(0,0,0,0.7);
     }
-    
     .gallery-prev {
       left: 10px;
     }
-    
     .gallery-next {
       right: 10px;
     }
-    
     .gallery-nav svg {
       width: 24px;
       height: 24px;
       stroke: white;
       stroke-width: 2;
     }
-    
     .no-image {
       text-align: center;
       color: #999;
@@ -146,9 +133,8 @@
       left: 50%;
       transform: translate(-50%, -50%);
       width: 100%;
+      z-index: 0;
     }
-    
-    /* Остальные стили */
     header {
       display: flex;
       justify-content: space-between;
@@ -156,28 +142,23 @@
       padding: 10px 0;
       margin-bottom: 30px;
     }
-    
     .logo {
       font-size: 1.5rem;
       font-weight: bold;
     }
-    
     .journal-info {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
       padding: 20px;
       margin-bottom: 30px;
     }
-    
     .journal-title {
       font-size: 1.5rem;
       margin-bottom: 10px;
     }
-    
     .journal-meta {
       margin-bottom: 10px;
     }
-    
     .buy-btn {
       display: block;
       width: 100%;
@@ -192,11 +173,9 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-    
     .buy-btn:hover {
       background: #2c974b;
     }
-    
     .journal-description {
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
@@ -205,31 +184,65 @@
       max-height: 200px;
       overflow-y: auto;
     }
-    
     .description-content {
       line-height: 1.5;
       white-space: pre-wrap;
     }
-    
-    /* Стили для скроллбара */
     .journal-description::-webkit-scrollbar {
       width: 6px;
     }
-    
     .journal-description::-webkit-scrollbar-track {
       background: rgba(255,255,255,0.1);
       border-radius: 3px;
     }
-    
     .journal-description::-webkit-scrollbar-thumb {
       background: rgba(255,255,255,0.3);
       border-radius: 3px;
     }
-
     hr {
       margin: 30px 0;
       border: none;
       border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    /* Стили для счетчика */
+    .price-container {
+      display: flex;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .price-icon {
+      margin-left: 8px;
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+    }
+    .quantity-control {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .quantity-btn {
+      width: 36px;
+      height: 36px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .quantity-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    .quantity-value {
+      margin: 0 15px;
+      font-size: 18px;
+      min-width: 20px;
+      text-align: center;
     }
   </style>
 </head>
@@ -274,7 +287,20 @@
     <div class="journal-info">
       <h1 id="journal-title" class="journal-title"></h1>
       <div id="journal-year" class="journal-meta"></div>
-      <div id="journal-price" class="journal-meta"></div>
+      
+      <div class="price-container">
+        <span id="journal-price" class="journal-meta"></span>
+        <svg class="price-icon" viewBox="0 0 24 24" fill="none">
+          <path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+        </svg>
+      </div>
+      
+      <div class="quantity-control">
+        <button class="quantity-btn" id="quantity-decrease">-</button>
+        <span class="quantity-value" id="quantity">1</span>
+        <button class="quantity-btn" id="quantity-increase">+</button>
+      </div>
+      
       <button id="buy-btn" class="buy-btn">Купить сейчас</button>
     </div>
   </div>
@@ -292,17 +318,23 @@
     let images = [];
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let touchStartX = 0;
+    let quantity = 1;
+    let basePrice = parseFloat(params.get('price')) || 0;
 
-    // Упрощенная функция загрузки изображений
+    // Функция загрузки изображений с предзагрузкой
     async function loadAllImages() {
       const galleryContainer = document.getElementById('gallery-images');
       const noImageElement = document.getElementById('no-image');
       
+      // Показываем сообщение о загрузке
+      noImageElement.style.display = 'block';
       galleryContainer.innerHTML = '';
       images = [];
       
-      // Загружаем все изображения сразу
+      // Загружаем изображения последовательно
       let imageNumber = 1;
+      let loadedCount = 0;
+      
       while (true) {
         const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
         const imageUrl = await findImageWithAnyExtension(baseUrl);
@@ -316,9 +348,10 @@
         img.onload = function() {
           galleryContainer.appendChild(img);
           images.push(img);
+          loadedCount++;
           
-          // Первое изображение делаем активным сразу
-          if (imageNumber === 1) {
+          // Первое изображение делаем активным
+          if (loadedCount === 1) {
             img.classList.add('active');
             noImageElement.style.display = 'none';
           }
@@ -338,11 +371,11 @@
         `;
       }
       
-      // Включаем навигацию сразу
+      // Включаем навигацию
       setupNavigation();
     }
 
-    // Остальные функции без изменений
+    // Поиск изображения с любым расширением
     async function findImageWithAnyExtension(baseUrl) {
       for (const ext of supportedFormats) {
         const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
@@ -353,6 +386,7 @@
       return null;
     }
 
+    // Проверка существования изображения
     async function checkImageExists(url) {
       return new Promise((resolve) => {
         const img = new Image();
@@ -362,6 +396,7 @@
       });
     }
 
+    // Настройка навигации
     function setupNavigation() {
       const prevBtn = document.getElementById('gallery-prev');
       const nextBtn = document.getElementById('gallery-next');
@@ -401,44 +436,47 @@
       }, {passive: true});
     }
 
+    // Показать предыдущее изображение
     function showPrevImage() {
       if (images.length <= 1) return;
       
-      const currentImg = images[currentImageIndex];
-      const nextIndex = (currentImageIndex - 1 + images.length) % images.length;
-      const nextImg = images[nextIndex];
-      
-      currentImg.classList.remove('active');
-      nextImg.classList.add('active');
-      currentImageIndex = nextIndex;
+      images[currentImageIndex].classList.remove('active');
+      currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+      images[currentImageIndex].classList.add('active');
     }
 
+    // Показать следующее изображение
     function showNextImage() {
       if (images.length <= 1) return;
       
-      const currentImg = images[currentImageIndex];
-      const nextIndex = (currentImageIndex + 1) % images.length;
-      const nextImg = images[nextIndex];
-      
-      currentImg.classList.remove('active');
-      nextImg.classList.add('active');
-      currentImageIndex = nextIndex;
+      images[currentImageIndex].classList.remove('active');
+      currentImageIndex = (currentImageIndex + 1) % images.length;
+      images[currentImageIndex].classList.add('active');
     }
 
-    // Остальные функции без изменений
+    // Обновление цены
+    function updatePrice() {
+      const totalPrice = basePrice * quantity;
+      document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
+    }
+
+    // Обработка покупки
     function handlePurchase() {
       const purchaseData = {
         journalId: journalId,
         title: document.getElementById('journal-title').textContent,
-        price: document.getElementById('journal-price').textContent
+        price: basePrice,
+        quantity: quantity,
+        total: basePrice * quantity
       };
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.sendData(JSON.stringify(purchaseData));
       } else {
-        alert(`Покупка: ${purchaseData.title}\n${purchaseData.price}`);
+        alert(`Покупка: ${purchaseData.title}\nКоличество: ${purchaseData.quantity}\nИтого: ${purchaseData.total}₽`);
       }
     }
 
+    // Создание звездного неба
     function createStars() {
       const container = document.getElementById('stars-container');
       for (let i = 0; i < 200; i++) {
@@ -456,17 +494,35 @@
       }
     }
 
-    // Инициализация
+    // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', () => {
       createStars();
       
+      // Заполняем информацию о журнале
       document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
       document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-      document.getElementById('journal-price').textContent = `Цена: ${params.get('price') || "0"}₽`;
+      updatePrice();
       document.getElementById('description-content').textContent = decodeURIComponent(params.get('description') || "Описание отсутствует");
       
+      // Обработчики кнопок количества
+      document.getElementById('quantity-decrease').addEventListener('click', () => {
+        if (quantity > 1) {
+          quantity--;
+          document.getElementById('quantity').textContent = quantity;
+          updatePrice();
+        }
+      });
+      
+      document.getElementById('quantity-increase').addEventListener('click', () => {
+        quantity++;
+        document.getElementById('quantity').textContent = quantity;
+        updatePrice();
+      });
+      
+      // Назначаем обработчик кнопки покупки
       document.getElementById('buy-btn').addEventListener('click', handlePurchase);
       
+      // Загружаем изображения
       loadAllImages();
     });
   </script>
