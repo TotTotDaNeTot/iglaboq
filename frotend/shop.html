@@ -505,42 +505,59 @@
         return;
       }
 
-      // Показываем индикатор загрузки
       if (window.Telegram?.WebApp) {
         Telegram.WebApp.MainButton.showProgress();
       }
 
-      // Тестовые данные платежа
-      const testPaymentResponse = {
-        status: "success",
-        confirmation_url: "https://example.com/success.html"
+      const formData = new FormData(form);
+      const orderData = {
+        product_id: journalId,
+        quantity: quantity,
+        amount: basePrice * quantity,
+        city: formData.get('city'),
+        postcode: formData.get('postcode'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        tg_user_id: window.Telegram?.WebApp.initDataUnsafe?.user?.id,
+        tg_username: window.Telegram?.WebApp.initDataUnsafe?.user?.username,
+        journal_title: document.getElementById('journal-title').textContent,
+        journal_year: document.getElementById('journal-year').textContent.replace('Год выпуска: ', '')
       };
 
-      // Имитация задержки сервера
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Обработка в Telegram WebApp
-      if (window.Telegram?.WebApp) {
-        Telegram.WebApp.openInvoice(testPaymentResponse.confirmation_url, (status) => {
-          if (status === 'paid') {
-            // В тестовом режиме всегда считаем платеж успешным
-            Telegram.WebApp.showAlert('✅ Платеж успешен (тестовый режим)', () => {
-              Telegram.WebApp.close();
-            });
-          } else {
-            Telegram.WebApp.MainButton.hideProgress();
-            Telegram.WebApp.showAlert('Платеж отменен (тест)');
-          }
+      try {
+        const response = await fetch('http://localhost:5005/create_payment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Test-Mode': 'true'
+          },
+          body: JSON.stringify(orderData)
         });
-      } else {
-        // Для браузерной версии
-        alert('✅ Платеж успешен (тестовый режим)\nСсылка: ' + testPaymentResponse.confirmation_url);
-        window.location.href = "?payment=success";
-      }
-      
-      // Скрываем индикатор загрузки
-      if (window.Telegram?.WebApp) {
-        Telegram.WebApp.MainButton.hideProgress();
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const paymentData = await response.json();
+        
+        if (window.Telegram?.WebApp) {
+          Telegram.WebApp.openInvoice(paymentData.confirmation_url, (status) => {
+            if (status === 'paid') {
+              Telegram.WebApp.close();
+            } else {
+              Telegram.WebApp.MainButton.hideProgress();
+              alert('Платеж не был завершен');
+            }
+          });
+        } else {
+          window.open(paymentData.confirmation_url, '_blank');
+        }
+      } catch (error) {
+        console.error('Payment error:', error);
+        if (window.Telegram?.WebApp) {
+          Telegram.WebApp.MainButton.hideProgress();
+        }
+        alert('Произошла ошибка при обработке платежа: ' + error.message);
       }
     }
 
