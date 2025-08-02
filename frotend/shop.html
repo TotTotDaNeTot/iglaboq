@@ -496,53 +496,53 @@
     async function processOrder() {
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
-        
-        // 1. Валидация формы
+
+        // 1. Проверка формы
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
 
-        // 2. Формируем данные заказа
+        // 2. Данные заказа
         const orderData = {
-            amount: basePrice * quantity,
+            amount: (basePrice * quantity).toFixed(2), // Обязательно 2 знака после запятой!
             description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
             email: formData.get('email')
         };
 
         try {
-            // 3. Формируем URL для ЮКассы
+            // 3. Формируем URL для ЮKассы
             const paymentUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
             
-            // Обязательные параметры:
-            paymentUrl.searchParams.append('shopId', '113497'); // Ваш shop_id
-            paymentUrl.searchParams.append('sum', orderData.amount.toFixed(2)); // Фиксируем 2 знака после запятой
+            // ОБЯЗАТЕЛЬНЫЕ параметры:
+            paymentUrl.searchParams.append('shopId', '1134957'); 
+            paymentUrl.searchParams.append('sum', orderData.amount);
             paymentUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
-            paymentUrl.searchParams.append('description', orderData.description.substring(0, 128));
-            paymentUrl.searchParams.append('paymentType', 'bank_card');
-            
-            // Дополнительные параметры:
-            paymentUrl.searchParams.append('customerEmail', orderData.email);
-            paymentUrl.searchParams.append('lang', 'ru'); // Язык интерфейса
+            paymentUrl.searchParams.append('description', orderData.description.substring(0, 128)); // Не больше 128 символов!
+            paymentUrl.searchParams.append('paymentType', 'bank_card'); // Без этого параметра — ошибка!
 
-            // Тестовый режим (если email содержит 'test')
-            if (/test/i.test(orderData.email)) {
+            // Дополнительные параметры (необязательные, но полезные):
+            paymentUrl.searchParams.append('customerEmail', orderData.email);
+            paymentUrl.searchParams.append('lang', 'ru'); // Язык интерфейса ("ru" или "en")
+
+            // 🔥 Тестовый режим (если email содержит "test")
+            if (orderData.email.includes('test')) {
                 paymentUrl.searchParams.append('demo', 'true');
-                paymentUrl.searchParams.append('demo_result', 'success');
+                paymentUrl.searchParams.append('demo_result', 'success'); // Платеж всегда успешный
             }
 
-            // 4. Открываем платежную форму
-            const paymentUrlString = paymentUrl.toString();
-            
+            console.log("Платежный URL:", paymentUrl.toString()); // Для отладки
+
+            // 4. Открываем платежную страницу
             if (window.Telegram?.WebApp) {
-                Telegram.WebApp.openLink(paymentUrlString);
+                Telegram.WebApp.openLink(paymentUrl.toString()); // Открываем в Telegram
             } else {
-                window.open(paymentUrlString, '_blank');
+                window.open(paymentUrl.toString(), '_blank'); // Открываем в браузере
             }
 
         } catch (error) {
-            console.error('Payment error:', error);
-            alert(`Ошибка при оформлении платежа: ${error.message}`);
+            console.error("Ошибка платежа:", error);
+            alert(`Ошибка: ${error.message}`);
         }
     }
 
