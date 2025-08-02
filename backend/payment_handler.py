@@ -2,7 +2,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import logging
 import uuid
-
+import sys
+from gunicorn.glogging import Logger
 
 
 app = Flask(__name__)
@@ -13,16 +14,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@app.route('/')
+
+class CustomLogger(Logger):
+    def setup(self, cfg):
+        super().setup(cfg)
+        self.error_log.propagate = False  # Отключаем дублирование логов
+        
+
+
+@app.route('/health')
 def health_check():
-    return "Server is running", 200
+    return jsonify({"status": "ok", "version": "1.0"}), 200
+
+
 
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
     return {"status": "success"}, 200
 
+
+    
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5005)
+    from gunicorn.app.wsgiapp import run
+    sys.argv = ["gunicorn", "--logger-class", "payment_handler.CustomLogger", "backend.payment_handler:app"]
+    sys.exit(run())
 
 
 
