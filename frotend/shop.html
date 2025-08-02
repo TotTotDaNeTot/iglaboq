@@ -497,54 +497,52 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
         
-        // Валидация формы
+        // 1. Валидация формы
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
 
-        // Получаем данные заказа
+        // 2. Формируем данные заказа
         const orderData = {
             amount: basePrice * quantity,
             description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
-            user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id,
-            city: formData.get('city'),
-            postcode: formData.get('postcode'),
-            phone: formData.get('phone'),
             email: formData.get('email')
         };
 
         try {
-            // Формируем корректный URL для ЮКассы
-            const yookassaUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
-            yookassaUrl.searchParams.append('shopId', '113497'); // Ваш shop_id
-            yookassaUrl.searchParams.append('sum', orderData.amount);
-            yookassaUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
-            yookassaUrl.searchParams.append('description', orderData.description.substring(0, 128)); // Ограничение длины
-            yookassaUrl.searchParams.append('customerEmail', orderData.email);
-            yookassaUrl.searchParams.append('paymentType', 'bank_card'); // Явное указание метода
+            // 3. Формируем URL для ЮКассы
+            const paymentUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
             
-            // Для тестового режима
-            if (orderData.email.includes('test')) {
-                yookassaUrl.searchParams.append('demo', 'true');
+            // Обязательные параметры:
+            paymentUrl.searchParams.append('shopId', '113497'); // Ваш shop_id
+            paymentUrl.searchParams.append('sum', orderData.amount.toFixed(2)); // Фиксируем 2 знака после запятой
+            paymentUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
+            paymentUrl.searchParams.append('description', orderData.description.substring(0, 128));
+            paymentUrl.searchParams.append('paymentType', 'bank_card');
+            
+            // Дополнительные параметры:
+            paymentUrl.searchParams.append('customerEmail', orderData.email);
+            paymentUrl.searchParams.append('lang', 'ru'); // Язык интерфейса
+
+            // Тестовый режим (если email содержит 'test')
+            if (/test/i.test(orderData.email)) {
+                paymentUrl.searchParams.append('demo', 'true');
+                paymentUrl.searchParams.append('demo_result', 'success');
             }
 
-            // Открываем платежную страницу
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.openInvoice(yookassaUrl.toString(), (status) => {
-                    if (status === 'paid') {
-                        Telegram.WebApp.showAlert('Платеж успешно завершен!');
-                    } else {
-                        Telegram.WebApp.showAlert('Платеж не был завершен');
-                    }
-                });
-            } else {
-                window.open(yookassaUrl.toString(), '_blank');
-            }
+            // 4. Открываем платежную форму
+            const paymentUrlString = paymentUrl.toString();
             
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.openLink(paymentUrlString);
+            } else {
+                window.open(paymentUrlString, '_blank');
+            }
+
         } catch (error) {
-            console.error('Ошибка:', error);
-            alert(`Ошибка: ${error.message}`);
+            console.error('Payment error:', error);
+            alert(`Ошибка при оформлении платежа: ${error.message}`);
         }
     }
 
