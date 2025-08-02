@@ -15,29 +15,30 @@ logger = logging.getLogger(__name__)
 
 
 
-class CustomLogger(Logger):
-    def setup(self, cfg):
-        super().setup(cfg)
-        self.error_log.propagate = False  # Отключаем дублирование логов
-        
-
-
 @app.route('/health')
 def health_check():
     return jsonify({"status": "ok", "version": "1.0"}), 200
 
-
-
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
-    return {"status": "success"}, 200
+    try:
+        data = request.json
+        logger.info(f"Received payment request: {data}")
+        
+        # Тестовый ответ
+        return jsonify({
+            "payment_id": "test_123",
+            "confirmation_url": "https://example.com/success",
+            "is_test": True
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Payment error: {str(e)}")
+        return jsonify({"error": "Payment processing failed"}), 500
 
-
-    
+# Важно: убираем блок с gunicorn.app.wsgiapp
 if __name__ == '__main__':
-    from gunicorn.app.wsgiapp import run
-    sys.argv = ["gunicorn", "--logger-class", "payment_handler.CustomLogger", "backend.payment_handler:app"]
-    sys.exit(run())
+    app.run(host='0.0.0.0', port=5005)
 
 
 

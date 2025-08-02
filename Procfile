@@ -1,1 +1,1 @@
-web: gunicorn --logger-class "payment_handler.CustomLogger" --access-logfile - --error-logfile - --capture-output -w 4 -b :$PORT backend.payment_handler:app
+web: gunicorn --workers 2 --timeout 120 --bind :$PORT --access-logfile - backend.payment_handler:app
