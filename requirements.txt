@@ -6,3 +6,6 @@ dotenv
 mysql-connector-python  
 aiogram
 fastapi
+python-dotenv
+aiohttp
+aiomysql
