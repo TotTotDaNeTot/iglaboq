@@ -497,37 +497,39 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
 
-        // 1. Валидация формы
+        // Валидация формы
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
         }
 
-        // 2. Данные заказа
+        // Данные заказа
         const orderData = {
-            amount: (basePrice * quantity).toFixed(2), // Пример: "100.00"
+            shopId: '1134957', // Ваш реальный shopId
+            amount: (basePrice * quantity).toFixed(2),
             description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
-            email: formData.get('email'),
-            shopId: '1134957' // Ваш shopId из кабинета ЮКассы
+            email: formData.get('email')
         };
 
-        // 3. Формируем URL для ЮКассы
+        // Формирование URL для ЮKассы
         const paymentUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
+        
+        // Обязательные параметры
         paymentUrl.searchParams.append('shopId', orderData.shopId);
         paymentUrl.searchParams.append('sum', orderData.amount);
         paymentUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
         paymentUrl.searchParams.append('description', orderData.description.substring(0, 128));
-        paymentUrl.searchParams.append('paymentType', 'bank_card'); // Критически важно!
+        paymentUrl.searchParams.append('paymentType', 'bank_card');
         paymentUrl.searchParams.append('customerEmail', orderData.email);
 
-        // 4. Тестовый режим (если email содержит "test")
-        if (/test/i.test(orderData.email)) {
+        // Тестовый режим (для email с "test")
+        if (orderData.email.includes('test')) {
             paymentUrl.searchParams.append('demo', 'true');
             paymentUrl.searchParams.append('demo_result', 'success');
         }
 
-        // 5. Открываем страницу оплаты
-        console.log("Payment URL:", paymentUrl.toString()); // Для отладки
+        // Открытие платежной страницы
+        console.log('Payment URL:', paymentUrl.toString());
         window.open(paymentUrl.toString(), '_blank');
     }
 
