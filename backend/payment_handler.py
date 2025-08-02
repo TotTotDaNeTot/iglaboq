@@ -13,47 +13,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-
-# Мок-база данных (вместо реальной MySQL)
-mock_db = {
-    "orders": [],
-    "payments": []
-}
-
-
+@app.route('/')
+def health_check():
+    return "Server is running", 200
 
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
-    try:
-        data = request.json
-        logger.info(f"Получен запрос: {data}")
-        
-        # Генерация тестового платежа
-        payment_id = f"test_{uuid.uuid4()}"
-        mock_db["orders"].append({
-            **data,
-            "payment_id": payment_id,
-            "status": "pending"
-        })
-        
-        return jsonify({
-            "payment_id": payment_id,
-            "confirmation_url": f"https://example.com/success?id={payment_id}",
-            "is_test": True
-        })
-        
-    except Exception as e:
-        logger.error(f"Ошибка: {str(e)}")
-        return jsonify({"error": "Payment processing failed"}), 500
-
-@app.route('/payment_webhook', methods=['POST'])
-def webhook():
-    try:
-        data = request.json
-        logger.info(f"Webhook received: {data}")
-        return jsonify({"status": "ok"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
+    return {"status": "success"}, 200
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5005)

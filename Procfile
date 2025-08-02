@@ -1,1 +1,1 @@
-web: gunicorn backend.payment_handler:app
+web: gunicorn -w 4 -b :$PORT backend.payment_handler:app
