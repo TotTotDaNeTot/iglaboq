@@ -497,7 +497,7 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
 
-        // 1. Проверка формы
+        // 1. Валидация формы
         if (!form.checkValidity()) {
             form.reportValidity();
             return;
@@ -505,28 +505,29 @@
 
         // 2. Данные заказа
         const orderData = {
-            amount: (basePrice * quantity).toFixed(2), // 100.00 руб
+            amount: (basePrice * quantity).toFixed(2), // Пример: "100.00"
             description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
             email: formData.get('email'),
-            shopId: '1134957' // Ваш shop_id из кабинета ЮKассы
+            shopId: '1134957' // Ваш shopId из кабинета ЮКассы
         };
 
-        // 3. Формируем URL для ЮKассы (без сервера!)
+        // 3. Формируем URL для ЮКассы
         const paymentUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
         paymentUrl.searchParams.append('shopId', orderData.shopId);
         paymentUrl.searchParams.append('sum', orderData.amount);
         paymentUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
         paymentUrl.searchParams.append('description', orderData.description.substring(0, 128));
-        paymentUrl.searchParams.append('paymentType', 'bank_card'); // Обязательно!
+        paymentUrl.searchParams.append('paymentType', 'bank_card'); // Критически важно!
         paymentUrl.searchParams.append('customerEmail', orderData.email);
 
         // 4. Тестовый режим (если email содержит "test")
-        if (orderData.email.includes('test')) {
+        if (/test/i.test(orderData.email)) {
             paymentUrl.searchParams.append('demo', 'true');
             paymentUrl.searchParams.append('demo_result', 'success');
         }
 
-        // 5. Открываем страницу оплаты в браузере
+        // 5. Открываем страницу оплаты
+        console.log("Payment URL:", paymentUrl.toString()); // Для отладки
         window.open(paymentUrl.toString(), '_blank');
     }
 
