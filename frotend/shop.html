@@ -497,10 +497,16 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
         
+        // Валидация формы
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
         // Получаем данные заказа
         const orderData = {
             amount: basePrice * quantity,
-            description: `Журнал ${journalId} (${quantity} шт)`,
+            description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
             user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id,
             city: formData.get('city'),
             postcode: formData.get('postcode'),
@@ -509,21 +515,31 @@
         };
 
         try {
-            // Формируем URL для ЮКассы (прямой переход)
-            const yookassaUrl = `https://yoomoney.ru/checkout/payments/v2/contract?` +
-                `shopId=113497&` +  // Ваш shop_id
-                `sum=${orderData.amount}&` +
-                `paymentId=${journalId}_${Date.now()}&` +
-                `description=${encodeURIComponent(orderData.description)}&` +
-                `customerEmail=${encodeURIComponent(orderData.email)}`;
+            // Формируем корректный URL для ЮКассы
+            const yookassaUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
+            yookassaUrl.searchParams.append('shopId', '113497'); // Ваш shop_id
+            yookassaUrl.searchParams.append('sum', orderData.amount);
+            yookassaUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
+            yookassaUrl.searchParams.append('description', orderData.description.substring(0, 128)); // Ограничение длины
+            yookassaUrl.searchParams.append('customerEmail', orderData.email);
+            yookassaUrl.searchParams.append('paymentType', 'bank_card'); // Явное указание метода
             
-            // Открываем в новом окне (или в текущем)
+            // Для тестового режима
+            if (orderData.email.includes('test')) {
+                yookassaUrl.searchParams.append('demo', 'true');
+            }
+
+            // Открываем платежную страницу
             if (window.Telegram?.WebApp) {
-                // Для Telegram WebApp
-                Telegram.WebApp.openLink(yookassaUrl);
+                Telegram.WebApp.openInvoice(yookassaUrl.toString(), (status) => {
+                    if (status === 'paid') {
+                        Telegram.WebApp.showAlert('Платеж успешно завершен!');
+                    } else {
+                        Telegram.WebApp.showAlert('Платеж не был завершен');
+                    }
+                });
             } else {
-                // Для тестирования в браузере
-                window.open(yookassaUrl, '_blank');
+                window.open(yookassaUrl.toString(), '_blank');
             }
             
         } catch (error) {
