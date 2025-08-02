@@ -1,3 +1,8 @@
 flask
 flask-cors
 gunicorn
+yookassa
+dotenv  
+mysql-connector-python  
+aiogram
+fastapi
