@@ -495,66 +495,39 @@
     // Обработка формы
     async function processOrder() {
         const form = document.getElementById('order-form');
-        const emailInput = document.getElementById('email');
-        
-        if (!form.checkValidity()) {
-            if (!emailInput.validity.valid) {
-                document.getElementById('email-error').style.display = 'block';
-                emailInput.focus();
-            }
-            return;
-        }
-
-        if (window.Telegram?.WebApp) {
-            Telegram.WebApp.MainButton.showProgress();
-        }
-
         const formData = new FormData(form);
+        
+        // Получаем данные заказа
         const orderData = {
-            product_id: journalId,
-            quantity: quantity,
             amount: basePrice * quantity,
+            description: `Журнал ${journalId} (${quantity} шт)`,
+            user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id,
             city: formData.get('city'),
             postcode: formData.get('postcode'),
             phone: formData.get('phone'),
-            email: formData.get('email'),
-            user_id: window.Telegram?.WebApp.initDataUnsafe?.user?.id,
-            username: window.Telegram?.WebApp.initDataUnsafe?.user?.username
+            email: formData.get('email')
         };
 
         try {
-            const response = await fetch('https://creative-consideration-production.up.railway.app/create_payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Test-Mode': 'true'
-                },
-                body: JSON.stringify(orderData)
-            });
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            // Формируем URL для ЮКассы (прямой переход)
+            const yookassaUrl = `https://yoomoney.ru/checkout/payments/v2/contract?` +
+                `shopId=113497&` +  // Ваш shop_id
+                `sum=${orderData.amount}&` +
+                `paymentId=${journalId}_${Date.now()}&` +
+                `description=${encodeURIComponent(orderData.description)}&` +
+                `customerEmail=${encodeURIComponent(orderData.email)}`;
             
-            const paymentData = await response.json();
-            
+            // Открываем в новом окне (или в текущем)
             if (window.Telegram?.WebApp) {
-                Telegram.WebApp.openInvoice(paymentData.confirmation_url, (status) => {
-                    Telegram.WebApp.MainButton.hideProgress();
-                    if (status === 'paid') {
-                        Telegram.WebApp.showAlert("Платеж успешен!");
-                    } else {
-                        Telegram.WebApp.showAlert("Платеж отменен");
-                    }
-                });
+                // Для Telegram WebApp
+                Telegram.WebApp.openLink(yookassaUrl);
             } else {
-                // Режим теста без Telegram
-                alert(JSON.stringify(paymentData));
-                window.open(paymentData.confirmation_url, '_blank');
+                // Для тестирования в браузере
+                window.open(yookassaUrl, '_blank');
             }
+            
         } catch (error) {
             console.error('Ошибка:', error);
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.MainButton.hideProgress();
-            }
             alert(`Ошибка: ${error.message}`);
         }
     }
