@@ -494,53 +494,20 @@
 
     // Обработка формы
     async function processOrder() {
+        // 1. Получаем данные формы
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
         
-        // 1. Валидация формы
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
+        // 2. Формируем платежный URL (БЕЗ ПРОВЕРОК)
+        const paymentUrl = `https://yoomoney.ru/checkout/payments/v2/contract?
+            shopId=1134957&
+            sum=${(basePrice * quantity).toFixed(2)}&
+            paymentId=order_${Date.now()}&
+            description=Журнал&
+            paymentType=bank_card`;
 
-        // 2. Получаем данные заказа
-        const orderData = {
-            amount: (basePrice * quantity).toFixed(2),
-            description: `Журнал "${decodeURIComponent(params.get('title') || '')}" (${quantity} шт)`,
-            email: formData.get('email'),
-            shopId: '1134957'
-        };
-
-        try {
-            // 3. Формируем URL для ЮKассы
-            const paymentUrl = new URL('https://yoomoney.ru/checkout/payments/v2/contract');
-            
-            // Обязательные параметры
-            paymentUrl.searchParams.append('shopId', orderData.shopId);
-            paymentUrl.searchParams.append('sum', orderData.amount);
-            paymentUrl.searchParams.append('paymentId', `order_${journalId}_${Date.now()}`);
-            paymentUrl.searchParams.append('description', orderData.description.substring(0, 128));
-            paymentUrl.searchParams.append('paymentType', 'bank_card');
-            paymentUrl.searchParams.append('customerEmail', orderData.email);
-
-            // 4. Тестовый режим
-            if (orderData.email.includes('test')) {
-                paymentUrl.searchParams.append('demo', 'true');
-                paymentUrl.searchParams.append('demo_result', 'success');
-            }
-
-            // 5. Открываем платежную страницу
-            console.log('Payment URL:', paymentUrl.toString());
-            
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.openLink(paymentUrl.toString());
-            } else {
-                window.open(paymentUrl.toString(), '_blank');
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert(`Ошибка: ${error.message}`);
-        }
+        // 3. Открываем платежную страницу
+        window.open(paymentUrl, '_blank');
     }
 
     // Инициализация
