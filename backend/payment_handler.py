@@ -43,6 +43,7 @@ bot = Bot(
 # Пул соединений MySQL
 db_pool = None
 
+
 def init_db():
     global db_pool
     try:
@@ -60,18 +61,18 @@ def init_db():
     except Exception as e:
         logger.error(f"❌ Ошибка подключения к MAMP MySQL: {e}")
         raise
-    
-    
 
 def get_db_conn():
     return db_pool.get_connection()
-
-
 
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
     try:
         data = request.json
+        
+        # Добавляем флаг для редиректа в браузер
+        return_url = "https://t.me/CocoCamBot?payment_success=true"
+        confirmation_type = "redirect"
         
         payment = Payment.create({
             "amount": {
@@ -79,38 +80,72 @@ def create_payment():
                 "currency": "RUB"
             },
             "confirmation": {
-                "type": "redirect",
-                "return_url": "https://google.com"  # Ваш URL для успешной оплаты
+                "type": confirmation_type,
+                "return_url": return_url
             },
             "capture": True,
-            "description": f"Журнал {data.get('journal_id')}"
+            "description": f"Журнал {data.get('journal_id')}",
+            "metadata": {
+                "user_id": data.get('user_id'),
+                "journal_id": data.get('journal_id'),
+                "quantity": data.get('quantity')
+            }
         })
 
+        # Сохраняем в БД
+        conn = get_db_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO payments (payment_id, user_id, amount, status, journal_id, quantity) VALUES (%s, %s, %s, %s, %s, %s)",
+            (payment.id, data.get('user_id'), float(data['amount']), 'pending', data.get('journal_id'), data.get('quantity'))
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        # Возвращаем URL для редиректа
         return jsonify({
             "success": True,
             "payment_id": payment.id,
-            "confirmation_url": payment.confirmation.confirmation_url  # URL для редиректа
+            "confirmation_url": payment.confirmation.confirmation_url,
+            "force_redirect": True  # Флаг для принудительного редиректа
         })
 
     except Exception as e:
+        logger.error(f"Ошибка при создании платежа: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
-
-
+        
+        
 
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
     try:
-        data = request.json
-        print("Webhook received:", data)  # Просто логируем данные
+        event_json = request.json
+        payment_id = event_json['object']['id']
+        
+        # Получаем информацию о платеже
+        payment = Payment.find_one(payment_id)
+        
+        # Обновляем статус в БД
+        conn = get_db_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE payments SET status = %s WHERE payment_id = %s",
+            (payment.status, payment_id)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"Webhook: платеж {payment_id} обновлен до статуса {payment.status}")
         return jsonify({"status": "ok"}), 200
+        
     except Exception as e:
-        print("Webhook error:", e)
+        logger.error(f"Ошибка в webhook: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
 
 @app.route('/check_payment', methods=['GET'])
 def check_payment():
@@ -124,11 +159,11 @@ def check_payment():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-
 @app.route('/payment_success')
 def payment_success():
     return redirect("https://t.me/CocoCamBot")
+
+
 
 if __name__ == '__main__':
     init_db()
