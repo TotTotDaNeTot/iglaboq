@@ -497,7 +497,6 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
         
-        // Получаем данные пользователя из Telegram WebApp
         const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
         
         const orderData = {
@@ -508,12 +507,7 @@
             postcode: formData.get('postcode'),
             phone: formData.get('phone'),
             email: formData.get('email'),
-            user_id: tgUser?.id,
-            // Добавляем метаданные для вебхука
-            metadata: {
-                telegram_chat_id: tgUser?.id, // ID чата для отправки уведомлений
-                journal_title: decodeURIComponent(params.get('title') || "Журнал")
-            }
+            user_id: tgUser?.id
         };
 
         try {
@@ -525,15 +519,31 @@
             
             const paymentData = await response.json();
             
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.openInvoice(paymentData.confirmation_url, (status) => {
-                    if (status === 'paid') {
-                        Telegram.WebApp.showAlert("Платеж успешен!");
+            // Открываем страницу оплаты в новом окне/вкладке
+            const paymentWindow = window.open(
+                paymentData.confirmation_url, 
+                '_blank',
+                'toolbar=no,location=no,status=no,menubar=no'
+            );
+            
+            // Проверяем статус каждые 2 секунды
+            const checkInterval = setInterval(async () => {
+                try {
+                    const statusResponse = await fetch(`https://worldly-natural-glassfish.cloudpub.ru/check_payment?payment_id=${paymentData.payment_id}`);
+                    const statusData = await statusResponse.json();
+                    
+                    if (statusData.status === 'succeeded') {
+                        clearInterval(checkInterval);
+                        if (window.Telegram?.WebApp) {
+                            Telegram.WebApp.showAlert("Платеж успешен!");
+                        }
+                        // Дополнительные действия после успешной оплаты
                     }
-                });
-            } else {
-                window.open(paymentData.confirmation_url, '_blank');
-            }
+                } catch (e) {
+                    console.error('Ошибка проверки статуса:', e);
+                }
+            }, 2000);
+            
         } catch (error) {
             console.error('Ошибка:', error);
             alert(`Ошибка: ${error.message}`);

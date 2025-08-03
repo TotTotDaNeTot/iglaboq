@@ -13,9 +13,11 @@ from gunicorn.glogging import Logger
 from yookassa import Configuration, Payment
 from aiomysql import create_pool
 
-from backend.database import db 
+from database import db 
 
-import urllib.parse
+import mysql.connector
+from mysql.connector import pooling
+
 
 app = Flask(__name__)
 CORS(app)  # Разрешаем все CORS-запросы
@@ -37,57 +39,45 @@ bot = Bot(
 )
 
 
-# Конфигурация MySQL
-async def get_db():
-    return await create_pool(
-        host=os.getenv('DB_HOST'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        db=os.getenv('DB_NAME'),
-        port=int(os.getenv('DB_PORT')))
+
+# Пул соединений MySQL
+db_pool = None
+
+def init_db():
+    global db_pool
+    try:
+        db_pool = pooling.MySQLConnectionPool(
+            pool_name="mamp_pool",
+            pool_size=5,
+            host='127.0.0.1',
+            user='root',
+            password='root',
+            database='tg_bot',
+            port=8889,
+            auth_plugin='mysql_native_password'
+        )
+        logger.info("✅ Успешное подключение к MAMP MySQL")
+    except Exception as e:
+        logger.error(f"❌ Ошибка подключения к MAMP MySQL: {e}")
+        raise
     
-        
+    
+
+def get_db_conn():
+    return db_pool.get_connection()
+
+
+
 @app.route('/create_payment', methods=['POST'])
-async def create_payment():
+def create_payment():
     try:
         data = request.json
         
-        # Валидация данных
-        required_fields = ['user_id', 'journal_id', 'amount', 'quantity', 
-                         'city', 'postcode', 'phone', 'email']
-        for field in required_fields:
-            if field not in data or not data[field]:
-                return jsonify({"error": f"Missing required field: {field}"}), 400
+        # Самый минимальный набор обязательных полей
+        if not data.get('amount') or not data.get('user_id'):
+            return jsonify({"error": "Amount and user_id are required"}), 400
 
-        # Сохраняем заказ в БД перед оплатой
-        order_id = str(uuid.uuid4())
-        db_pool = await get_db()
-        
-        async with db_pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute('''
-                    INSERT INTO orders 
-                    (order_id, tg_user_id, product_id, quantity, amount, 
-                     city, postcode, phone, email, status, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-                ''', (
-                    order_id,
-                    data['user_id'],
-                    data['journal_id'],
-                    data['quantity'],
-                    float(data['amount']),
-                    data['city'],
-                    data['postcode'],
-                    data['phone'],
-                    data['email'],
-                    'pending'
-                ))
-                await conn.commit()
-
-        # Получаем название журнала из метаданных (если передано)
-        journal_title = data.get('metadata', {}).get('journal_title', data['journal_id'])
-
-        # Создаем платеж в ЮKассе
+        # Простейший платёж без БД
         payment = Payment.create({
             "amount": {
                 "value": f"{float(data['amount']):.2f}",
@@ -95,101 +85,49 @@ async def create_payment():
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": f"https://t.me/CocoCamBot?start=payment_{order_id}"
+                "return_url": "https://example.com"  # Простой рабочий URL
             },
             "capture": True,
-            "description": f"Журнал '{journal_title}' (кол-во: {data['quantity']})",
-            "metadata": {
-                "order_id": order_id,
-                "user_id": data['user_id'],
-                "telegram_chat_id": data['user_id'],  # Для вебхука
-                "journal_id": data['journal_id'],
-                "quantity": data['quantity']
-            },
-            "receipt": {
-                "customer": {
-                    "email": data['email']
-                },
-                "items": [{
-                    "description": f"Журнал '{journal_title}'",
-                    "quantity": str(data['quantity']),
-                    "amount": {
-                        "value": f"{float(data['amount'])/float(data['quantity']):.2f}",
-                        "currency": "RUB"
-                    },
-                    "vat_code": "1",
-                    "payment_mode": "full_prepayment",
-                    "payment_subject": "commodity"
-                }]
-            }
+            "description": "Покупка в магазине"
         })
-
-        # Обновляем order_id в БД с payment_id
-        async with db_pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                await cursor.execute('''
-                    UPDATE orders SET payment_id = %s 
-                    WHERE order_id = %s
-                ''', (payment.id, order_id))
-                await conn.commit()
 
         return jsonify({
             "success": True,
             "payment_id": payment.id,
-            "order_id": order_id,
             "confirmation_url": payment.confirmation.confirmation_url
         })
 
     except Exception as e:
-        logger.error(f"Payment creation error: {str(e)}")
         return jsonify({
             "success": False,
-            "error": "Ошибка при создании платежа",
-            "details": str(e)
+            "error": str(e)
         }), 500
 
 
 
 @app.route('/payment_webhook', methods=['POST'])
-async def payment_webhook():
+def payment_webhook():
     try:
         data = request.json
-        if data['event'] == 'payment.succeeded':
-            order_id = data['object']['metadata']['order_id']
-            
-            # Обновляем статус в БД
-            await db.update_order_status(
-                order_id=order_id,
-                status='paid',
-                payment_id=data['object']['id']
-            )
-            
-            # Получаем chat_id из метаданных (добавьте его при создании платежа)
-            chat_id = data['object']['metadata'].get('telegram_chat_id')
-            if chat_id:
-                order = await db.get_order_by_id(order_id)
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text=f"✅ Платеж подтвержден!\nЗаказ №{order_id}\nСумма: {order['amount']}₽"
-                )
-            
+        print("Webhook received:", data)  # Просто логируем данные
         return jsonify({"status": "ok"}), 200
-    
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        print("Webhook error:", e)
         return jsonify({"error": str(e)}), 500
-    
-  
-  
-    
+
+
+
 @app.route('/payment_success')
 def payment_success():
-    # Обработка успешного платежа (для вебхуков)
     return redirect("https://t.me/CocoCamBot")
-    
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5005, debug=True)
+    init_db()
+    try:
+        app.run(host='0.0.0.0', port=5005, debug=True)
+    finally:
+        if db_pool:
+            db_pool.close()
 
 
 
