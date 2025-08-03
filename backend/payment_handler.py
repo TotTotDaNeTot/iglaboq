@@ -73,11 +73,6 @@ def create_payment():
     try:
         data = request.json
         
-        # Самый минимальный набор обязательных полей
-        if not data.get('amount') or not data.get('user_id'):
-            return jsonify({"error": "Amount and user_id are required"}), 400
-
-        # Простейший платёж без БД
         payment = Payment.create({
             "amount": {
                 "value": f"{float(data['amount']):.2f}",
@@ -85,16 +80,16 @@ def create_payment():
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "https://example.com"  # Простой рабочий URL
+                "return_url": "https://google.com"  # Ваш URL для успешной оплаты
             },
             "capture": True,
-            "description": "Покупка в магазине"
+            "description": f"Журнал {data.get('journal_id')}"
         })
 
         return jsonify({
             "success": True,
             "payment_id": payment.id,
-            "confirmation_url": payment.confirmation.confirmation_url
+            "confirmation_url": payment.confirmation.confirmation_url  # URL для редиректа
         })
 
     except Exception as e:
@@ -113,6 +108,20 @@ def payment_webhook():
         return jsonify({"status": "ok"}), 200
     except Exception as e:
         print("Webhook error:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+
+@app.route('/check_payment', methods=['GET'])
+def check_payment():
+    payment_id = request.args.get('payment_id')
+    try:
+        payment = Payment.find_one(payment_id)
+        return jsonify({
+            "status": payment.status,
+            "payment_id": payment.id
+        })
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
