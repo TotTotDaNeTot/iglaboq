@@ -544,7 +544,7 @@
                 amount: basePrice * quantity,
                 journal_id: journalId,
                 user_id: window.userId,
-                chat_id: window.chatId || Telegram.WebApp.initDataUnsafe.chat?.id,
+                chat_id: window.chatId || window.userId,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 city: document.getElementById('city').value
