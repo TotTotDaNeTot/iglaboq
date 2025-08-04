@@ -5,10 +5,13 @@ from aiogram.client.default import DefaultBotProperties
 
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
+
 import logging
 import uuid
 import sys
 import os
+import requests
+
 from gunicorn.glogging import Logger
 from yookassa import Configuration, Payment
 from aiomysql import create_pool
@@ -70,11 +73,11 @@ def get_db_conn():
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
     try:
-        # Получаем данные из запроса
         data = request.json
         amount = float(data['amount'])
+        user_id = data.get('user_id')
         
-        # Создаем платеж в ЮKassa
+        # Create payment in YooKassa
         payment = Payment.create({
             "amount": {
                 "value": f"{amount:.2f}",
@@ -82,68 +85,150 @@ def create_payment():
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "https://t.me/CocoCamBot?payment_success=1"
+                "return_url": f"https://worldly-natural-glassfish.cloudpub.ru/payment_success?user_id={user_id}"
             },
             "capture": True,
-            "description": f"Оплата заказа {data.get('journal_id', '')}"
+            "description": f"Payment for journal {data.get('journal_id', '')}",
+            "metadata": {
+                "user_id": user_id,
+                "journal_id": data.get('journal_id'),
+                "amount": amount
+            }
         })
-        
-        # Возвращаем URL для редиректа
+
+        # Save to database
+        conn = db_pool.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO payments (payment_id, user_id, amount, status) VALUES (%s, %s, %s, %s)",
+            (payment.id, user_id, amount, 'pending')
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
         return jsonify({
             "success": True,
-            "payment_url": payment.confirmation.confirmation_url
+            "payment_url": payment.confirmation.confirmation_url,
+            "payment_id": payment.id
         })
-        
+
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "error": str(e)
-        }), 500
-        
-        
+        logger.error(f"Payment creation failed: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/payment_success')
+def payment_success():
+    user_id = request.args.get('user_id')
+    
+    # Return HTML page that will close the WebApp
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Payment Successful</title>
+        <script src="https://telegram.org/js/telegram-web-app.js"></script>
+        <style>
+            body {{ 
+                font-family: Arial, sans-serif; 
+                text-align: center; 
+                padding: 40px 20px;
+                background-color: #f5f5f5;
+            }}
+            .success-container {{
+                max-width: 500px;
+                margin: 0 auto;
+                padding: 30px;
+                background: white;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }}
+            .success-icon {{
+                color: #4CAF50;
+                font-size: 60px;
+                margin-bottom: 20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="success-container">
+            <div class="success-icon">✓</div>
+            <h2>Payment Successful</h2>
+            <p>Thank you for your purchase!</p>
+            <p>You will receive a confirmation shortly.</p>
+        </div>
+        <script>
+            // Close WebApp after 3 seconds
+            setTimeout(() => {{
+                if (window.Telegram && Telegram.WebApp && Telegram.WebApp.close) {{
+                    Telegram.WebApp.close();
+                }}
+            }}, 3000);
+            
+            // Notify bot about successful payment
+            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.sendData) {{
+                Telegram.WebApp.sendData(JSON.stringify({{
+                    type: 'payment_success',
+                    user_id: '{user_id}'
+                }}));
+            }}
+        </script>
+    </body>
+    </html>
+    """
 
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
     try:
         event_json = request.json
-        payment_id = event_json['object']['id']
+        payment = event_json['object']
         
-        # Получаем информацию о платеже
-        payment = Payment.find_one(payment_id)
-        
-        # Обновляем статус в БД
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE payments SET status = %s WHERE payment_id = %s",
-            (payment.status, payment_id)
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        
-        logger.info(f"Webhook: платеж {payment_id} обновлен до статуса {payment.status}")
+        if payment['status'] == 'succeeded':
+            user_id = payment['metadata']['user_id']
+            payment_id = payment['id']
+            amount = payment['amount']['value']
+            
+            # Update database
+            conn = db_pool.get_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE payments SET status = 'succeeded' WHERE payment_id = %s",
+                (payment_id,)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            # Send confirmation message
+            send_telegram_message(
+                user_id,
+                f"✅ Payment successful!\n"
+                f"Amount: {amount} RUB\n"
+                f"Payment ID: {payment_id}\n"
+                f"Tracking number will be sent within 24 hours"
+            )
+            
         return jsonify({"status": "ok"}), 200
         
     except Exception as e:
-        logger.error(f"Ошибка в webhook: {str(e)}")
+        logger.error(f"Webhook error: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/check_payment', methods=['GET'])
-def check_payment():
-    payment_id = request.args.get('payment_id')
+def send_telegram_message(user_id, text):
+    bot_token = os.getenv('BOT_TOKEN')
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": user_id,
+        "text": text,
+        "parse_mode": "HTML"
+    }
     try:
-        payment = Payment.find_one(payment_id)
-        return jsonify({
-            "status": payment.status,
-            "payment_id": payment.id
-        })
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return True
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/payment_success')
-def payment_success():
-    return redirect("https://t.me/CocoCamBot")
+        logger.error(f"Failed to send Telegram message: {e}")
+        return False
 
 
 
