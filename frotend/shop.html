@@ -544,13 +544,15 @@
             
             // Собираем данные формы
             const formData = {
+                type: 'create_payment',
                 amount: basePrice * quantity,
                 journal_id: journalId,
                 user_id: window.userId,
                 chat_id: window.chatId,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
-                city: document.getElementById('city').value
+                city: document.getElementById('city').value,
+                is_mobile: Telegram.WebApp.isMobile // Добавляем информацию о платформе
             };
 
             // Создаем платеж
@@ -570,11 +572,27 @@
                 throw new Error(result.error || "Ошибка при создании платежа");
             }
 
-            // Перенаправляем на страницу оплаты
-            if (window.Telegram?.WebApp?.openLink) {
+            // Для мобильных - открываем страницу оплаты
+            if (Telegram.WebApp.isMobile) {
                 Telegram.WebApp.openLink(result.payment_url);
-            } else {
-                window.location.href = result.payment_url;
+            } 
+            // Для веб-версии - закрываем приложение и открываем в новой вкладке
+            else {
+                window.open(result.payment_url, '_blank');
+                
+                // Отправляем данные о платеже и закрываем WebApp
+                if (window.Telegram?.WebApp?.sendData) {
+                    Telegram.WebApp.sendData(JSON.stringify({
+                        type: 'payment_success',
+                        payment_id: result.payment_id, // Используем payment_id из ответа сервера
+                        amount: formData.amount
+                    }));
+                }
+                
+                // Закрываем без задержки
+                if (window.Telegram?.WebApp?.close) {
+                    Telegram.WebApp.close();
+                }
             }
             
         } catch (error) {
@@ -590,15 +608,14 @@
         }
     }
 
-    // Проверка статуса платежа при возврате
     function checkPaymentStatus() {
         const params = new URLSearchParams(window.location.search);
         if (params.has('payment_success')) {
             showSuccessMessage();
             
-            // Закрываем мини-приложение через 3 секунды
             if (window.Telegram?.WebApp?.close) {
-                setTimeout(() => Telegram.WebApp.close(), 30);
+                // Закрываем сразу (без задержки, если не нужно показывать сообщение)
+                Telegram.WebApp.close();
             }
         }
     }

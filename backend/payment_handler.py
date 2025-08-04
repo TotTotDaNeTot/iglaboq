@@ -76,23 +76,25 @@ def create_payment():
         data = request.json
         amount = float(data['amount'])
         user_id = data.get('user_id')
-        
-        # Create payment in YooKassa
+        chat_id = data.get('chat_id')  # Добавьте chat_id в данные с фронтенда
+
+        # Для мобильных и десктопных клиентов разные return_url
+        return_url = (
+            f"https://web.telegram.org/k/#{chat_id}"
+            if not data.get('is_mobile', False)
+            else f"https://t.me/CocoCamBot?start=payment_success_{user_id}"
+        )
+
         payment = Payment.create({
-            "amount": {
-                "value": f"{amount:.2f}",
-                "currency": "RUB"
-            },
+            "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
-                "return_url": f"https://t.me/CocoCamBot?start=payment_success_{user_id}"
+                "return_url": return_url
             },
-            "capture": True,
-            "description": f"Payment for journal {data.get('journal_id', '')}",
             "metadata": {
                 "user_id": user_id,
-                "journal_id": data.get('journal_id'),
-                "amount": amount
+                "chat_id": chat_id,
+                "journal_id": data.get('journal_id')
             }
         })
 
@@ -116,6 +118,8 @@ def create_payment():
     except Exception as e:
         logger.error(f"Payment creation failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+    
+    
 
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
