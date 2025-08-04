@@ -70,17 +70,11 @@ def get_db_conn():
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
     try:
-        data = request.get_json()  # Используем get_json() вместо json
-        
-        # Валидация данных
-        if not data or 'amount' not in data:
-            return jsonify({"success": False, "error": "Invalid request data"}), 400
-
+        # Получаем данные из запроса
+        data = request.json
         amount = float(data['amount'])
-        if amount <= 0:
-            return jsonify({"success": False, "error": "Amount must be positive"}), 400
-
-        # Создаем платеж
+        
+        # Создаем платеж в ЮKassa
         payment = Payment.create({
             "amount": {
                 "value": f"{amount:.2f}",
@@ -88,29 +82,22 @@ def create_payment():
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": "https://t.me/CocoCamBot?payment_success=1"  # Простая URL
+                "return_url": "https://t.me/CocoCamBot?payment_success=1"
             },
             "capture": True,
-            "description": f"Журнал {data.get('journal_id', '')}",
-            "metadata": data
+            "description": f"Оплата заказа {data.get('journal_id', '')}"
         })
-
-        # Логируем созданный платеж
-        logger.info(f"Created payment: {payment.id}")
         
+        # Возвращаем URL для редиректа
         return jsonify({
             "success": True,
-            "payment_id": payment.id,
-            "confirmation_url": payment.confirmation.confirmation_url,
-            "simple_redirect": True  # Флаг для простого редиректа
+            "payment_url": payment.confirmation.confirmation_url
         })
-
+        
     except Exception as e:
-        logger.error(f"Payment creation error: {str(e)}")
         return jsonify({
             "success": False,
-            "error": "Payment creation failed",
-            "details": str(e)
+            "error": str(e)
         }), 500
         
         
