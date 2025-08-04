@@ -512,8 +512,12 @@
         const form = document.getElementById('order-form');
         const formData = new FormData(form);
         
-        const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-        
+        // Простая валидация
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+
         const orderData = {
             journal_id: journalId,
             amount: basePrice * quantity,
@@ -522,45 +526,46 @@
             postcode: formData.get('postcode'),
             phone: formData.get('phone'),
             email: formData.get('email'),
-            user_id: tgUser?.id
+            user_id: window.Telegram?.WebApp?.initDataUnsafe?.user?.id || null
         };
 
-        try {
-            const submitBtn = document.querySelector('#order-form button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loader"></span> Обработка...';
+        const submitBtn = document.querySelector('#order-form button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loader"></span> Обработка...';
 
+        try {
             const response = await fetch('/create_payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(orderData)
             });
             
-            const paymentData = await response.json();
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             
-            if (paymentData.success && paymentData.confirmation_url) {
-                // Всегда делаем редирект в браузер
-                if (paymentData.force_redirect) {
-                    // Для Telegram Mini App закрываем и открываем в браузере
-                    if (window.Telegram?.WebApp?.openLink) {
-                        Telegram.WebApp.openLink(paymentData.confirmation_url);
-                    } else {
-                        // Для обычного браузера
-                        window.open(paymentData.confirmation_url, '_blank');
-                    }
-                } else {
-                    // Стандартное поведение (если вдруг понадобится)
-                    window.location.href = paymentData.confirmation_url;
-                }
-            } else {
-                throw new Error(paymentData.error || "Не удалось создать платеж");
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.error || "Ошибка при создании платежа");
             }
+
+            // Простой редирект
+            if (result.simple_redirect && result.confirmation_url) {
+                if (window.Telegram?.WebApp?.openLink) {
+                    // Для Telegram Mini App
+                    Telegram.WebApp.openLink(result.confirmation_url);
+                } else {
+                    // Для браузера
+                    window.location.href = result.confirmation_url;
+                }
+                return;
+            }
+
+            throw new Error("Не получен URL для оплаты");
             
         } catch (error) {
-            console.error('Ошибка:', error);
+            console.error('Payment error:', error);
             alert(`Ошибка: ${error.message}`);
-            
-            const submitBtn = document.querySelector('#order-form button[type="submit"]');
+        } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Перейти к оплате';
         }

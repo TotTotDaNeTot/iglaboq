@@ -65,57 +65,52 @@ def init_db():
 def get_db_conn():
     return db_pool.get_connection()
 
+
+
 @app.route('/create_payment', methods=['POST'])
 def create_payment():
     try:
-        data = request.json
+        data = request.get_json()  # Используем get_json() вместо json
         
-        # Добавляем флаг для редиректа в браузер
-        return_url = "https://t.me/CocoCamBot?payment_success=true"
-        confirmation_type = "redirect"
-        
+        # Валидация данных
+        if not data or 'amount' not in data:
+            return jsonify({"success": False, "error": "Invalid request data"}), 400
+
+        amount = float(data['amount'])
+        if amount <= 0:
+            return jsonify({"success": False, "error": "Amount must be positive"}), 400
+
+        # Создаем платеж
         payment = Payment.create({
             "amount": {
-                "value": f"{float(data['amount']):.2f}",
+                "value": f"{amount:.2f}",
                 "currency": "RUB"
             },
             "confirmation": {
-                "type": confirmation_type,
-                "return_url": return_url
+                "type": "redirect",
+                "return_url": "https://t.me/CocoCamBot?payment_success=1"  # Простая URL
             },
             "capture": True,
-            "description": f"Журнал {data.get('journal_id')}",
-            "metadata": {
-                "user_id": data.get('user_id'),
-                "journal_id": data.get('journal_id'),
-                "quantity": data.get('quantity')
-            }
+            "description": f"Журнал {data.get('journal_id', '')}",
+            "metadata": data
         })
 
-        # Сохраняем в БД
-        conn = get_db_conn()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO payments (payment_id, user_id, amount, status, journal_id, quantity) VALUES (%s, %s, %s, %s, %s, %s)",
-            (payment.id, data.get('user_id'), float(data['amount']), 'pending', data.get('journal_id'), data.get('quantity'))
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        # Возвращаем URL для редиректа
+        # Логируем созданный платеж
+        logger.info(f"Created payment: {payment.id}")
+        
         return jsonify({
             "success": True,
             "payment_id": payment.id,
             "confirmation_url": payment.confirmation.confirmation_url,
-            "force_redirect": True  # Флаг для принудительного редиректа
+            "simple_redirect": True  # Флаг для простого редиректа
         })
 
     except Exception as e:
-        logger.error(f"Ошибка при создании платежа: {str(e)}")
+        logger.error(f"Payment creation error: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": "Payment creation failed",
+            "details": str(e)
         }), 500
         
         
