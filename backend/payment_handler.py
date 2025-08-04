@@ -83,22 +83,15 @@ def get_db_conn():
 def create_payment():
     try:
         data = request.json
-        if not data.get('chat_id'):
-            return jsonify({
-                "success": False,
-                "error": "chat_id is required"
-            }), 400
-        
-        data = request.json
+        user_id = data['user_id']
+        chat_id = data.get('chat_id', user_id)  # Используем user_id если chat_id не передан
         amount = float(data['amount'])
-        user_id = data.get('user_id')
-        chat_id = data.get('chat_id')  # Добавьте chat_id в данные с фронтенда
-
-        # Для мобильных и десктопных клиентов разные return_url
+        
+        # Для мобильных и веб разный return_url
+        is_mobile = data.get('is_mobile', False)
         return_url = (
-            f"https://web.telegram.org/k/#{chat_id}"
-            if not data.get('is_mobile', False)
-            else f"https://t.me/CocoCamBot?start=payment_success_{user_id}"
+            f"https://t.me/CocoCamBot?start=payment_{user_id}" if is_mobile
+            else f"https://web.telegram.org/k/#{chat_id}"
         )
 
         payment = Payment.create({
@@ -114,12 +107,12 @@ def create_payment():
             }
         })
 
-        # Save to database
+        # Сохраняем в БД
         conn = db_pool.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO payments (payment_id, user_id, amount, status) VALUES (%s, %s, %s, %s)",
-            (payment.id, user_id, amount, 'pending')
+            "INSERT INTO payments (payment_id, user_id, chat_id, amount, status) VALUES (%s, %s, %s, %s, %s)",
+            (payment.id, user_id, chat_id, amount, 'pending')
         )
         conn.commit()
         cursor.close()

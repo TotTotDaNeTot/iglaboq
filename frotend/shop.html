@@ -347,14 +347,28 @@
     // Инициализация WebApp
     if (window.Telegram?.WebApp) {
         Telegram.WebApp.expand();
-        Telegram.WebApp.MainButton.setText("Купить").show().onClick(goToOrderPage);
         
         // Получаем данные пользователя из WebApp
         const user = Telegram.WebApp.initDataUnsafe?.user;
+        const chat = Telegram.WebApp.initDataUnsafe?.chat;
         if (user) {
             window.userId = user.id;
-            window.chatId = Telegram.WebApp.initDataUnsafe?.chat?.id || user.id;
+            window.chatId = chat?.id || user.id;
+            
+            // Для отладки
+            console.log('WebApp initialized', {
+                userId: window.userId,
+                chatId: window.chatId,
+                platform: Telegram.WebApp.platform,
+                isMobile: Telegram.WebApp.isMobile
+            });
         }
+        
+        // Настройка основной кнопки
+        Telegram.WebApp.MainButton
+            .setText("Купить")
+            .show()
+            .onClick(goToOrderPage);
     }
 
     const params = new URLSearchParams(window.location.search);
@@ -533,7 +547,8 @@
         if (isProcessing) return;
         isProcessing = true;
         
-        const submitBtn = document.querySelector('#order-form button[type="submit"]');
+        const form = document.getElementById('order-form');
+        const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         
         try {
@@ -544,7 +559,8 @@
                 amount: basePrice * quantity,
                 journal_id: journalId,
                 user_id: window.userId,
-                chat_id: window.chatId || window.userId,
+                chat_id: window.chatId,
+                is_mobile: Telegram.WebApp.isMobile, // Добавляем информацию о платформе
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 city: document.getElementById('city').value
@@ -562,13 +578,20 @@
                 throw new Error(result.error || "Ошибка при создании платежа");
             }
 
-            // Всегда открываем страницу оплаты
-            if (window.Telegram?.WebApp?.openLink) {
+            // Для мобильных - открываем страницу оплаты
+            if (Telegram.WebApp.isMobile) {
                 Telegram.WebApp.openLink(result.payment_url);
-            } else {
-                window.location.href = result.payment_url;
+            } 
+            // Для веб-версии - открываем в новой вкладке и закрываем приложение
+            else {
+                window.open(result.payment_url, '_blank');
+                setTimeout(() => {
+                    if (window.Telegram?.WebApp?.close) {
+                        Telegram.WebApp.close();
+                    }
+                }, 1000);
             }
-
+            
         } catch (error) {
             console.error('Ошибка:', error);
             alert(`Ошибка: ${error.message}`);
@@ -581,29 +604,35 @@
         }
     }
 
-    // Функция для закрытия приложения и отправки сообщения
+    // Функция для завершения платежа (вызывается после успешной оплаты)
     function completePayment(paymentData) {
         if (window.Telegram?.WebApp) {
-            // Отправляем данные в чат
+            // 1. Отправляем данные в чат
             Telegram.WebApp.sendData(JSON.stringify({
                 type: 'payment_success',
                 payment_id: paymentData.id,
-                amount: paymentData.amount
+                amount: paymentData.amount,
+                chat_id: window.chatId
             }));
             
-            // Закрываем мини-приложение
-            Telegram.WebApp.close();
+            // 2. Закрываем мини-приложение
+            setTimeout(() => {
+                Telegram.WebApp.close();
+            }, 500);
         }
     }
 
+    // Проверка статуса платежа при возврате (ОБНОВЛЕННАЯ ВЕРСИЯ)
     function checkPaymentStatus() {
         const params = new URLSearchParams(window.location.search);
         if (params.has('payment_success')) {
             showSuccessMessage();
             
             if (window.Telegram?.WebApp?.close) {
-                // Закрываем сразу (без задержки, если не нужно показывать сообщение)
-                Telegram.WebApp.close();
+                // Закрываем приложение через 3 секунды
+                setTimeout(() => {
+                    Telegram.WebApp.close();
+                }, 3000);
             }
         }
     }
