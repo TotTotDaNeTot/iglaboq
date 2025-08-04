@@ -343,6 +343,8 @@
     </div>
   </div>
 
+  <div id="hidden-redirect" style="display:none;"></div>
+
   <script>
     // Инициализация WebApp
     if (window.Telegram?.WebApp) {
@@ -363,6 +365,12 @@
                 isMobile: Telegram.WebApp.isMobile
             });
         }
+
+        Telegram.WebApp.onEvent('viewportChanged', (event) => {
+            if (event.isStateStable && window.paymentId) {
+                completePayment();
+            }
+        });
         
         // Настройка основной кнопки
         Telegram.WebApp.MainButton
@@ -547,8 +555,7 @@
         if (isProcessing) return;
         isProcessing = true;
         
-        const form = document.getElementById('order-form');
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = document.querySelector('#order-form button[type="submit"]');
         const originalText = submitBtn.textContent;
         
         try {
@@ -560,7 +567,7 @@
                 journal_id: journalId,
                 user_id: window.userId,
                 chat_id: window.chatId,
-                is_mobile: Telegram.WebApp.isMobile, // Добавляем информацию о платформе
+                is_mobile: Telegram.WebApp.isMobile,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 city: document.getElementById('city').value
@@ -578,13 +585,26 @@
                 throw new Error(result.error || "Ошибка при создании платежа");
             }
 
-            // Для мобильных - открываем страницу оплаты
+            // Сохраняем payment_id для завершения платежа
+            window.paymentId = result.payment_id;
+            
+            // Открываем страницу оплаты в зависимости от платформы
             if (Telegram.WebApp.isMobile) {
+                // Для мобильных - используем стандартный метод
                 Telegram.WebApp.openLink(result.payment_url);
-            } 
-            // Для веб-версии - открываем в новой вкладке и закрываем приложение
-            else {
-                window.open(result.payment_url, '_blank');
+            } else {
+                // Для веба - создаем видимую кнопку для пользователя
+                const paymentBtn = document.createElement('a');
+                paymentBtn.href = result.payment_url;
+                paymentBtn.target = '_blank';
+                paymentBtn.style.display = 'none';
+                paymentBtn.id = 'payment-redirect';
+                document.body.appendChild(paymentBtn);
+                
+                // Программный клик по ссылке (разрешен браузерами)
+                paymentBtn.click();
+                
+                // Закрываем приложение через 1 секунду
                 setTimeout(() => {
                     if (window.Telegram?.WebApp?.close) {
                         Telegram.WebApp.close();
@@ -596,26 +616,26 @@
             console.error('Ошибка:', error);
             alert(`Ошибка: ${error.message}`);
         } finally {
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                isProcessing = false;
-            }, 3000);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            isProcessing = false;
         }
     }
 
     // Функция для завершения платежа (вызывается после успешной оплаты)
-    function completePayment(paymentData) {
+    function completePayment() {
+        if (!window.paymentId) return;
+        
         if (window.Telegram?.WebApp) {
-            // 1. Отправляем данные в чат
+            // Отправляем данные в чат
             Telegram.WebApp.sendData(JSON.stringify({
                 type: 'payment_success',
-                payment_id: paymentData.id,
-                amount: paymentData.amount,
+                payment_id: window.paymentId,
+                amount: basePrice * quantity,
                 chat_id: window.chatId
             }));
             
-            // 2. Закрываем мини-приложение
+            // Закрываем мини-приложение
             setTimeout(() => {
                 Telegram.WebApp.close();
             }, 500);

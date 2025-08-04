@@ -84,21 +84,17 @@ def create_payment():
     try:
         data = request.json
         user_id = data['user_id']
-        chat_id = data.get('chat_id', user_id)  # Используем user_id если chat_id не передан
+        chat_id = data.get('chat_id', user_id)
         amount = float(data['amount'])
-        
-        # Для мобильных и веб разный return_url
         is_mobile = data.get('is_mobile', False)
-        return_url = (
-            f"https://t.me/CocoCamBot?start=payment_{user_id}" if is_mobile
-            else f"https://web.telegram.org/k/#{chat_id}"
-        )
 
+        # Создаем платеж в ЮКасса
         payment = Payment.create({
             "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
-                "return_url": return_url
+                "return_url": f"https://t.me/CocoCamBot?start=payment_{user_id}" if is_mobile 
+                            else f"https://web.telegram.org/k/#{chat_id}"
             },
             "metadata": {
                 "user_id": user_id,
