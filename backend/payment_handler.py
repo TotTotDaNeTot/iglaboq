@@ -2,6 +2,10 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import *
+
+from dotenv import load_dotenv
+
 
 from flask import Flask, request, jsonify, redirect
 from flask_cors import CORS
@@ -11,10 +15,12 @@ import uuid
 import sys
 import os
 import requests
+import json
 
 from gunicorn.glogging import Logger
 from yookassa import Configuration, Payment
 from aiomysql import create_pool
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from database import db 
 
@@ -41,6 +47,9 @@ bot = Bot(
     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 
+
+storage = MemoryStorage()
+dp = Dispatcher(bot=bot, storage=storage)
 
 
 # Пул соединений MySQL
@@ -128,29 +137,27 @@ def payment_webhook():
         payment = event_json['object']
         
         if payment['status'] == 'succeeded':
-            user_id = payment['metadata']['user_id']
+            # Извлекаем данные из платежа
+            metadata = payment.get('metadata', {})
+            user_id = metadata.get('user_id')
+            chat_id = metadata.get('chat_id')
             payment_id = payment['id']
             amount = payment['amount']['value']
             
-            # Update database
-            conn = db_pool.get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE payments SET status = 'succeeded' WHERE payment_id = %s",
-                (payment_id,)
-            )
-            conn.commit()
-            cursor.close()
-            conn.close()
+            # Обновляем статус в базе данных
+            update_payment_status(payment_id, 'succeeded')
             
-            # Send confirmation message
-            send_telegram_message(
-                user_id,
+            # Отправляем сообщение через JS (WebApp.sendData)
+            # Дополнительно отправляем через бота для надежности
+            payment_message = (
                 f"✅ Платеж успешен!\n"
                 f"Сумма: {amount} RUB\n"
                 f"Номер: {payment_id}\n"
                 f"Трек-номер будет отправлен в течение 24 часов"
             )
+            
+            # Отправляем в оба места (и в чат, и через WebApp)
+            send_telegram_message(chat_id, payment_message)
             
         return jsonify({"status": "ok"}), 200
         
@@ -158,20 +165,63 @@ def payment_webhook():
         logger.error(f"Webhook error: {e}")
         return jsonify({"error": str(e)}), 500
 
-def send_telegram_message(user_id, text):
+def update_payment_status(payment_id: str, status: str):
+    """Обновляет статус платежа в базе данных"""
+    try:
+        conn = db_pool.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE payments SET status = %s WHERE payment_id = %s",
+            (status, payment_id)
+        )
+        conn.commit()
+    except Exception as e:
+        logger.error(f"Database update error: {e}")
+        raise
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+
+
+@dp.message(WebAppData)
+async def handle_web_app_data(message: types.Message):
+    """Обработчик данных из WebApp"""
+    try:
+        data = json.loads(message.web_app_data.data)
+        
+        if data.get('type') == 'payment_success':
+            # Логируем полученные данные
+            logger.info(f"Received payment success: {data}")
+            
+            # Можно добавить дополнительную обработку,
+            # но основное сообщение уже отправлено из payment_webhook
+            pass
+            
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON data from WebApp")
+    except Exception as e:
+        logger.error(f"WebApp data processing error: {e}")
+
+def send_telegram_message(chat_id: int, text: str) -> bool:
+    """Отправляет сообщение в Telegram чат"""
     bot_token = os.getenv('BOT_TOKEN')
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
     payload = {
-        "chat_id": user_id,
+        "chat_id": chat_id,
         "text": text,
         "parse_mode": "HTML"
     }
+    
     try:
         response = requests.post(url, json=payload)
         response.raise_for_status()
         return True
-    except Exception as e:
-        logger.error(f"Failed to send Telegram message: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Telegram message sending failed: {e}")
         return False
 
 

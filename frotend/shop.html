@@ -533,78 +533,66 @@
         if (isProcessing) return;
         isProcessing = true;
         
-        const form = document.getElementById('order-form');
-        const submitBtn = form.querySelector('button[type="submit"]');
+        const submitBtn = document.querySelector('#order-form button[type="submit"]');
         const originalText = submitBtn.textContent;
         
         try {
-            // Блокируем кнопку
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
-            
-            // Собираем данные формы
+
             const formData = {
-                type: 'create_payment',
                 amount: basePrice * quantity,
                 journal_id: journalId,
                 user_id: window.userId,
                 chat_id: window.chatId,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
-                city: document.getElementById('city').value,
-                is_mobile: Telegram.WebApp.isMobile // Добавляем информацию о платформе
+                city: document.getElementById('city').value
             };
 
-            // Создаем платеж
             const response = await fetch('https://worldly-natural-glassfish.cloudpub.ru/create_payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData)
             });
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-            
+
             const result = await response.json();
             
             if (!result.success) {
                 throw new Error(result.error || "Ошибка при создании платежа");
             }
 
-            // Для мобильных - открываем страницу оплаты
-            if (Telegram.WebApp.isMobile) {
+            // Всегда открываем страницу оплаты
+            if (window.Telegram?.WebApp?.openLink) {
                 Telegram.WebApp.openLink(result.payment_url);
-            } 
-            // Для веб-версии - закрываем приложение и открываем в новой вкладке
-            else {
-                window.open(result.payment_url, '_blank');
-                
-                // Отправляем данные о платеже и закрываем WebApp
-                if (window.Telegram?.WebApp?.sendData) {
-                    Telegram.WebApp.sendData(JSON.stringify({
-                        type: 'payment_success',
-                        payment_id: result.payment_id, // Используем payment_id из ответа сервера
-                        amount: formData.amount
-                    }));
-                }
-                
-                // Закрываем без задержки
-                if (window.Telegram?.WebApp?.close) {
-                    Telegram.WebApp.close();
-                }
+            } else {
+                window.location.href = result.payment_url;
             }
-            
+
         } catch (error) {
             console.error('Ошибка:', error);
             alert(`Ошибка: ${error.message}`);
         } finally {
-            // Разблокируем кнопку через 3 секунды
             setTimeout(() => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
                 isProcessing = false;
             }, 3000);
+        }
+    }
+
+    // Функция для закрытия приложения и отправки сообщения
+    function completePayment(paymentData) {
+        if (window.Telegram?.WebApp) {
+            // Отправляем данные в чат
+            Telegram.WebApp.sendData(JSON.stringify({
+                type: 'payment_success',
+                payment_id: paymentData.id,
+                amount: paymentData.amount
+            }));
+            
+            // Закрываем мини-приложение
+            Telegram.WebApp.close();
         }
     }
 
