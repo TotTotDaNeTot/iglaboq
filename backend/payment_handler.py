@@ -88,13 +88,11 @@ def create_payment():
         amount = float(data['amount'])
         is_mobile = data.get('is_mobile', False)
 
-        # Создаем платеж в ЮКасса
         payment = Payment.create({
             "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
-                "return_url": f"https://t.me/CocoCamBot?start=payment_{user_id}" if is_mobile 
-                            else f"https://web.telegram.org/k/#{chat_id}"
+                "return_url": f"https://t.me/CocoCamBot?start=payment_{user_id}"
             },
             "metadata": {
                 "user_id": user_id,
@@ -103,7 +101,7 @@ def create_payment():
             }
         })
 
-        # Сохраняем в БД
+        # Сохранение в БД
         conn = db_pool.get_connection()
         cursor = conn.cursor()
         cursor.execute(
