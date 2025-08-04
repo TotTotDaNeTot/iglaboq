@@ -85,7 +85,7 @@ def create_payment():
             },
             "confirmation": {
                 "type": "redirect",
-                "return_url": f"https://worldly-natural-glassfish.cloudpub.ru/payment_success?user_id={user_id}"
+                "return_url": f"https://t.me/CocoCamBot?start=payment_success_{user_id}"
             },
             "capture": True,
             "description": f"Payment for journal {data.get('journal_id', '')}",
@@ -117,66 +117,6 @@ def create_payment():
         logger.error(f"Payment creation failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route('/payment_success')
-def payment_success():
-    user_id = request.args.get('user_id')
-    
-    # Return HTML page that will close the WebApp
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Payment Successful</title>
-        <script src="https://telegram.org/js/telegram-web-app.js"></script>
-        <style>
-            body {{ 
-                font-family: Arial, sans-serif; 
-                text-align: center; 
-                padding: 40px 20px;
-                background-color: #f5f5f5;
-            }}
-            .success-container {{
-                max-width: 500px;
-                margin: 0 auto;
-                padding: 30px;
-                background: white;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }}
-            .success-icon {{
-                color: #4CAF50;
-                font-size: 60px;
-                margin-bottom: 20px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="success-container">
-            <div class="success-icon">✓</div>
-            <h2>Payment Successful</h2>
-            <p>Thank you for your purchase!</p>
-            <p>You will receive a confirmation shortly.</p>
-        </div>
-        <script>
-            // Close WebApp after 3 seconds
-            setTimeout(() => {{
-                if (window.Telegram && Telegram.WebApp && Telegram.WebApp.close) {{
-                    Telegram.WebApp.close();
-                }}
-            }}, 3000);
-            
-            // Notify bot about successful payment
-            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.sendData) {{
-                Telegram.WebApp.sendData(JSON.stringify({{
-                    type: 'payment_success',
-                    user_id: '{user_id}'
-                }}));
-            }}
-        </script>
-    </body>
-    </html>
-    """
-
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
     try:
@@ -202,10 +142,10 @@ def payment_webhook():
             # Send confirmation message
             send_telegram_message(
                 user_id,
-                f"✅ Payment successful!\n"
-                f"Amount: {amount} RUB\n"
-                f"Payment ID: {payment_id}\n"
-                f"Tracking number will be sent within 24 hours"
+                f"✅ Платеж успешен!\n"
+                f"Сумма: {amount} RUB\n"
+                f"Номер: {payment_id}\n"
+                f"Трек-номер будет отправлен в течение 24 часов"
             )
             
         return jsonify({"status": "ok"}), 200

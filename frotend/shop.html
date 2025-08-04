@@ -344,170 +344,207 @@
   </div>
 
   <script>
-    // Инициализация WebApp
-    if (window.Telegram?.WebApp) {
-      Telegram.WebApp.expand();
-      Telegram.WebApp.MainButton.setText("Купить").show().onClick(goToOrderPage);
+    // Основные переменные
+    let journalId, quantity = 1, basePrice;
+    let isProcessing = false;
+
+    // Инициализация приложения
+    function initApp() {
+        // Получаем параметры из URL
+        const params = new URLSearchParams(window.location.search);
+        journalId = params.get('journal');
+        basePrice = parseFloat(params.get('price')) || 0;
+        
+        // Устанавливаем данные журнала
+        document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
+        document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+        updatePrice();
+        
+        // Инициализация Telegram WebApp
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.expand();
+            setupTelegramButtons();
+        }
+        
+        // Загрузка изображений
+        loadAllImages();
+        
+        // Настройка обработчиков событий
+        setupEventListeners();
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal');
-    let currentImageIndex = 0;
-    let images = [];
-    const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
-    let quantity = 1;
-    let basePrice = parseFloat(params.get('price')) || 0;
-    let isAnimating = false;
+    // Настройка кнопок Telegram
+    function setupTelegramButtons() {
+        Telegram.WebApp.MainButton
+            .setText("Купить")
+            .show()
+            .onClick(goToOrderPage);
+    }
 
-    // Загрузка изображений
+    // Загрузка изображений журнала
     async function loadAllImages() {
-      const galleryContainer = document.getElementById('gallery-images');
-      const noImageElement = document.getElementById('no-image');
-      
-      galleryContainer.innerHTML = '';
-      images = [];
-      
-      let imageNumber = 1;
-      while (true) {
-        const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
-        const imageUrl = await findImageWithAnyExtension(baseUrl);
-        if (!imageUrl) break;
-
-        const img = new Image();
-        img.className = 'gallery-image';
-        img.src = imageUrl;
-        img.alt = `Изображение ${imageNumber}`;
+        const galleryContainer = document.getElementById('gallery-images');
+        const noImageElement = document.getElementById('no-image');
         
-        img.onload = () => {
-          galleryContainer.appendChild(img);
-          images.push(img);
-          if (images.length === 1) {
-            img.classList.add('active');
-            noImageElement.style.display = 'none';
-          }
-        };
+        galleryContainer.innerHTML = '';
+        noImageElement.style.display = 'flex';
         
-        imageNumber++;
-      }
-
-      if (images.length === 0) {
-        noImageElement.innerHTML = `
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-            <path d="M3 16L10 9L13 12L16 9L21 16"/>
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <circle cx="8.5" cy="8.5" r="2.5"/>
-          </svg>
-          <p>Изображения недоступны</p>
-        `;
-      }
-      
-      setupNavigation();
+        let imageNumber = 1;
+        const images = [];
+        const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
+        
+        while (true) {
+            const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
+            const imageUrl = await findImageWithAnyExtension(baseUrl, supportedFormats);
+            
+            if (!imageUrl) break;
+            
+            const img = document.createElement('img');
+            img.className = 'gallery-image';
+            img.src = imageUrl;
+            img.alt = `Изображение ${imageNumber}`;
+            
+            img.onload = () => {
+                galleryContainer.appendChild(img);
+                images.push(img);
+                noImageElement.style.display = 'none';
+                
+                // Показываем первое изображение
+                if (images.length === 1) {
+                    img.classList.add('active');
+                }
+                
+                // Настраиваем навигацию после загрузки первого изображения
+                if (images.length === 1) {
+                    setupGalleryNavigation(images);
+                }
+            };
+            
+            imageNumber++;
+        }
+        
+        if (images.length === 0) {
+            noImageElement.innerHTML = `
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="2.5"/>
+                </svg>
+                <p>Изображения недоступны</p>
+            `;
+        }
     }
 
-    async function findImageWithAnyExtension(baseUrl) {
-      for (const ext of supportedFormats) {
-        const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
-        if (await checkImageExists(imageUrl)) return imageUrl;
-      }
-      return null;
+    // Поиск изображения с любым расширением
+    async function findImageWithAnyExtension(baseUrl, extensions) {
+        for (const ext of extensions) {
+            const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
+            if (await checkImageExists(imageUrl)) return imageUrl;
+        }
+        return null;
     }
 
-    async function checkImageExists(url) {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(true);
-        img.onerror = () => resolve(false);
-        img.src = url;
-      });
+    // Проверка существования изображения
+    function checkImageExists(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            img.src = url;
+        });
     }
 
-    function setupNavigation() {
-      const prevBtn = document.getElementById('gallery-prev');
-      const nextBtn = document.getElementById('gallery-next');
-      
-      if (images.length <= 1) {
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-        return;
-      }
-      
-      prevBtn.addEventListener('click', () => {
-        if (!isAnimating) showPrevImage();
-      });
-      
-      nextBtn.addEventListener('click', () => {
-        if (!isAnimating) showNextImage();
-      });
-      
-      // Свайпы
-      const galleryWrapper = document.getElementById('gallery-wrapper');
-      let touchStartX = 0;
-      
-      galleryWrapper.addEventListener('touchstart', (e) => {
-        touchStartX = e.touches[0].clientX;
-      }, {passive: true});
-      
-      galleryWrapper.addEventListener('touchend', (e) => {
-        if (isAnimating) return;
-        const touchEndX = e.changedTouches[0].clientX;
-        const diff = touchStartX - touchEndX;
-        if (Math.abs(diff) > 50) diff > 0 ? showNextImage() : showPrevImage();
-      }, {passive: true});
+    // Настройка навигации по галерее
+    function setupGalleryNavigation(images) {
+        const prevBtn = document.getElementById('gallery-prev');
+        const nextBtn = document.getElementById('gallery-next');
+        const galleryWrapper = document.getElementById('gallery-wrapper');
+        
+        if (images.length <= 1) {
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'none';
+            return;
+        }
+        
+        let currentIndex = 0;
+        let isAnimating = false;
+        
+        function showImage(index) {
+            if (isAnimating || index < 0 || index >= images.length) return;
+            
+            isAnimating = true;
+            images[currentIndex].classList.remove('active');
+            currentIndex = index;
+            images[currentIndex].classList.add('active');
+            
+            setTimeout(() => {
+                isAnimating = false;
+            }, 300);
+        }
+        
+        prevBtn.addEventListener('click', () => showImage((currentIndex - 1 + images.length) % images.length));
+        nextBtn.addEventListener('click', () => showImage((currentIndex + 1) % images.length));
+        
+        // Свайпы для мобильных устройств
+        let touchStartX = 0;
+        galleryWrapper.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+        
+        galleryWrapper.addEventListener('touchend', (e) => {
+            if (isAnimating) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            
+            if (Math.abs(diff) > 50) {
+                if (diff > 0) {
+                    showImage((currentIndex + 1) % images.length);
+                } else {
+                    showImage((currentIndex - 1 + images.length) % images.length);
+                }
+            }
+        }, { passive: true });
     }
 
-    function showPrevImage() {
-      if (images.length <= 1 || isAnimating) return;
-      
-      isAnimating = true;
-      images[currentImageIndex].classList.remove('active');
-      currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-      images[currentImageIndex].classList.add('active');
-      
-      setTimeout(() => {
-        isAnimating = false;
-      }, 300);
-    }
-
-    function showNextImage() {
-      if (images.length <= 1 || isAnimating) return;
-      
-      isAnimating = true;
-      images[currentImageIndex].classList.remove('active');
-      currentImageIndex = (currentImageIndex + 1) % images.length;
-      images[currentImageIndex].classList.add('active');
-      
-      setTimeout(() => {
-        isAnimating = false;
-      }, 300);
-    }
-
+    // Обновление цены
     function updatePrice() {
-      const totalPrice = basePrice * quantity;
-      document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
+        const totalPrice = basePrice * quantity;
+        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
     }
 
-    // Переключение страниц
+    // Переключение на страницу оформления заказа
     function goToOrderPage() {
-      document.getElementById('product-page').classList.remove('active');
-      document.getElementById('order-page').classList.add('active');
-      document.getElementById('stars-container').style.display = 'none';
-      
-      if (window.Telegram?.WebApp) {
-        Telegram.WebApp.MainButton.setText("Оформить заказ").show().onClick(processOrder);
-      }
+        document.getElementById('product-page').classList.remove('active');
+        document.getElementById('order-page').classList.add('active');
+        document.getElementById('stars-container').style.display = 'none';
+        
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton
+                .setText("Оформить заказ")
+                .show()
+                .onClick(processOrder);
+        }
     }
 
+    // Возврат на страницу товара
     function goToProductPage() {
-      document.getElementById('order-page').classList.remove('active');
-      document.getElementById('product-page').classList.add('active');
-      document.getElementById('stars-container').style.display = 'block';
-      
-      if (window.Telegram?.WebApp) {
-        Telegram.WebApp.MainButton.setText("Купить").show().onClick(goToOrderPage);
-      }
+        document.getElementById('order-page').classList.remove('active');
+        document.getElementById('product-page').classList.add('active');
+        document.getElementById('stars-container').style.display = 'block';
+        
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton
+                .setText("Купить")
+                .show()
+                .onClick(goToOrderPage);
+        }
     }
 
+    // Обработка оформления заказа
     async function processOrder() {
+        if (isProcessing) return;
+        isProcessing = true;
+        
         const form = document.getElementById('order-form');
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
@@ -515,8 +552,9 @@
         try {
             // Блокируем кнопку
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loader"></span> Processing...';
+            submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
             
+            // Собираем данные формы
             const formData = {
                 amount: basePrice * quantity,
                 journal_id: journalId,
@@ -525,8 +563,8 @@
                 phone: document.getElementById('phone').value,
                 city: document.getElementById('city').value
             };
-
-            // Создаем платеж
+            
+            // Отправляем запрос на создание платежа
             const response = await fetch('https://worldly-natural-glassfish.cloudpub.ru/create_payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -534,16 +572,16 @@
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Ошибка сервера: ${response.status}`);
             }
             
             const result = await response.json();
             
             if (!result.success) {
-                throw new Error(result.error || "Payment creation failed");
+                throw new Error(result.error || "Ошибка при создании платежа");
             }
-
-            // Открываем страницу оплаты
+            
+            // Перенаправляем на страницу оплаты
             if (window.Telegram?.WebApp?.openLink) {
                 Telegram.WebApp.openLink(result.payment_url);
             } else {
@@ -551,27 +589,50 @@
             }
             
         } catch (error) {
-            console.error('Payment error:', error);
-            alert(`Error: ${error.message}`);
+            console.error('Ошибка:', error);
+            alert(`Ошибка: ${error.message}`);
         } finally {
-            // Разблокируем кнопку через 5 секунд
+            // Разблокируем кнопку через 3 секунды
             setTimeout(() => {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
-            }, 5000);
+                isProcessing = false;
+            }, 3000);
         }
     }
 
-    // Обработка данных от WebApp
-    if (window.Telegram?.WebApp?.onEvent) {
-        Telegram.WebApp.onEvent('viewportChanged', () => {
-            if (Telegram.WebApp.isExpanded) {
-                checkPaymentStatus();
+    // Настройка обработчиков событий
+    function setupEventListeners() {
+        // Кнопки количества
+        document.getElementById('quantity-decrease').addEventListener('click', () => {
+            if (quantity > 1) {
+                quantity--;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
             }
         });
+        
+        document.getElementById('quantity-increase').addEventListener('click', () => {
+            quantity++;
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        });
+        
+        // Кнопки навигации
+        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
+        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
+        
+        // Форма заказа
+        document.getElementById('order-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            processOrder();
+        });
+        
+        // Проверка статуса платежа при загрузке
+        checkPaymentStatus();
     }
 
-    // Проверка статуса платежа при возврате
+    // Проверка статуса платежа (если вернулись после оплаты)
     function checkPaymentStatus() {
         const params = new URLSearchParams(window.location.search);
         if (params.has('payment_success')) {
@@ -579,77 +640,45 @@
         }
     }
 
+    // Показать сообщение об успешной оплате
     function showSuccessMessage() {
         document.body.innerHTML = `
             <div style="text-align: center; padding: 40px;">
                 <div style="font-size: 60px; color: green;">✓</div>
-                <h2>Payment Successful</h2>
-                <p>Thank you for your purchase!</p>
-                <p>This window will close automatically...</p>
+                <h2>Оплата прошла успешно!</h2>
+                <p>Спасибо за ваш заказ.</p>
+                <p>Детали отправлены в Telegram.</p>
             </div>
         `;
         
         if (window.Telegram?.WebApp?.close) {
-            setTimeout(() => {
-                Telegram.WebApp.close();
-            }, 3000);
+            setTimeout(() => Telegram.WebApp.close(), 3000);
         }
     }
 
-    // Проверяем статус при загрузке
-    document.addEventListener('DOMContentLoaded', checkPayment);
-
-    // Инициализация
-    document.addEventListener('DOMContentLoaded', () => {
-      createStars();
-      
-      document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
-      document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-      updatePrice();
-      
-      document.getElementById('quantity-decrease').addEventListener('click', () => {
-        if (quantity > 1) {
-          quantity--;
-          document.getElementById('quantity').textContent = quantity;
-          updatePrice();
-        }
-      });
-      
-      document.getElementById('quantity-increase').addEventListener('click', () => {
-        quantity++;
-        document.getElementById('quantity').textContent = quantity;
-        updatePrice();
-      });
-      
-      document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
-      document.getElementById('back-to-product').addEventListener('click', goToProductPage);
-      
-      document.getElementById('order-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        processOrder();
-      });
-      
-      checkPaymentStatus();
-      loadAllImages();
-    });
-
-    // Создание звездного неба
+    // Создание звездного фона
     function createStars() {
-      const container = document.getElementById('stars-container');
-      for (let i = 0; i < 200; i++) {
-        const star = document.createElement('div');
-        star.className = 'star';
-        star.style.cssText = `
-          width: ${Math.random() * 3}px;
-          height: ${Math.random() * 3}px;
-          left: ${Math.random() * 100}%;
-          top: ${Math.random() * 100}%;
-          opacity: ${Math.random() * 0.7 + 0.3};
-          animation-duration: ${Math.random() * 4 + 2}s;
-        `;
-        container.appendChild(star);
-      }
+        const container = document.getElementById('stars-container');
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.cssText = `
+                width: ${Math.random() * 3}px;
+                height: ${Math.random() * 3}px;
+                left: ${Math.random() * 100}%;
+                top: ${Math.random() * 100}%;
+                opacity: ${Math.random() * 0.7 + 0.3};
+                animation-duration: ${Math.random() * 4 + 2}s;
+            `;
+            container.appendChild(star);
+        }
     }
+
+    // Запуск приложения после загрузки DOM
+    document.addEventListener('DOMContentLoaded', () => {
+        createStars();
+        initApp();
+    });
   </script>
 </body>
 </html>
