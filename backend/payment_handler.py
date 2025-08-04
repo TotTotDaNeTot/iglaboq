@@ -83,6 +83,13 @@ def get_db_conn():
 def create_payment():
     try:
         data = request.json
+        if not data.get('chat_id'):
+            return jsonify({
+                "success": False,
+                "error": "chat_id is required"
+            }), 400
+        
+        data = request.json
         amount = float(data['amount'])
         user_id = data.get('user_id')
         chat_id = data.get('chat_id')  # Добавьте chat_id в данные с фронтенда
