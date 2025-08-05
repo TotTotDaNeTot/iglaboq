@@ -319,7 +319,7 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
   </style>
 </head>
 <body>
@@ -1005,39 +1005,85 @@
 
     // Инициализация при загрузке страницы - МОДИФИЦИРОВАННЫЙ БЛОК
     document.addEventListener('DOMContentLoaded', () => {
+        // Инициализация приложения
         createStars();
         loadJournalData();
         loadAllImages();
         updatePrice();
         
-        document.getElementById('quantity-decrease').addEventListener('click', () => {
+        // Получаем элементы один раз
+        const decreaseBtn = document.getElementById('quantity-decrease');
+        const increaseBtn = document.getElementById('quantity-increase');
+        const buyBtn = document.getElementById('buy-btn');
+        const backBtn = document.getElementById('back-to-product');
+        const orderForm = document.getElementById('order-form');
+        
+        // Флаг для предотвращения двойного клика
+        let isProcessingClick = false;
+        
+        // Обработчик уменьшения количества
+        const handleDecrease = () => {
+            if (isProcessingClick) return;
+            
+            isProcessingClick = true;
             if (quantity > 1) {
                 quantity--;
                 document.getElementById('quantity').textContent = quantity;
                 updatePrice();
             }
-        });
+            setTimeout(() => { isProcessingClick = false; }, 300);
+        };
         
-        document.getElementById('quantity-increase').addEventListener('click', () => {
+        // Обработчик увеличения количества
+        const handleIncrease = () => {
+            if (isProcessingClick) return;
+            
+            isProcessingClick = true;
             quantity++;
             document.getElementById('quantity').textContent = quantity;
             updatePrice();
-        });
+            setTimeout(() => { isProcessingClick = false; }, 300);
+        };
         
-        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
-        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
+        // Удаляем старые обработчики (на случай повторной инициализации)
+        decreaseBtn.removeEventListener('click', handleDecrease);
+        increaseBtn.removeEventListener('click', handleIncrease);
+        buyBtn.removeEventListener('click', goToOrderPage);
+        backBtn.removeEventListener('click', goToProductPage);
+        orderForm.removeEventListener('input', handleFormInput);
+        orderForm.removeEventListener('submit', processOrder);
         
-        // Валидация при вводе
-        document.getElementById('order-form').addEventListener('input', (e) => {
+        // Добавляем новые обработчики
+        decreaseBtn.addEventListener('click', handleDecrease);
+        increaseBtn.addEventListener('click', handleIncrease);
+        buyBtn.addEventListener('click', goToOrderPage);
+        backBtn.addEventListener('click', goToProductPage);
+        
+        // Обработчик ввода в форме
+        const handleFormInput = (e) => {
             if (e.target.tagName === 'INPUT') {
                 validateForm();
             }
-        });
+        };
+        orderForm.addEventListener('input', handleFormInput);
         
-        // Обработка отправки формы
-        document.getElementById('order-form').addEventListener('submit', processOrder);
+        // Обработчик отправки формы
+        orderForm.addEventListener('submit', processOrder);
         
+        // Проверка статуса платежа
         checkPaymentStatus();
+        
+        // Добавляем стили для кнопок при наведении
+        const style = document.createElement('style');
+        style.textContent = `
+            #quantity-decrease:hover, #quantity-increase:hover {
+                background-color: rgba(0,0,0,0.1);
+            }
+            #quantity-decrease:active, #quantity-increase:active {
+                transform: scale(0.95);
+            }
+        `;
+        document.head.appendChild(style);
     });
   </script>
 </body>
