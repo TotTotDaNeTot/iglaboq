@@ -704,10 +704,19 @@
         }
     }
 
+    function updatePrice() {
+        const totalPrice = basePrice * quantity;
+        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
+    }
+
+    // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', () => {
         createStars();
         loadJournalData(); // Загружаем данные из БД
         loadAllImages();
+        
+        // Вызываем updatePrice() сразу при загрузке
+        updatePrice();
         
         document.getElementById('quantity-decrease').addEventListener('click', () => {
             if (quantity > 1) {
