@@ -1005,39 +1005,114 @@
 
     // Инициализация при загрузке страницы - МОДИФИЦИРОВАННЫЙ БЛОК
     document.addEventListener('DOMContentLoaded', () => {
+        // Инициализация приложения
         createStars();
         loadJournalData();
         loadAllImages();
         updatePrice();
         
-        document.getElementById('quantity-decrease').addEventListener('click', () => {
+        // Получаем элементы один раз
+        const decreaseBtn = document.getElementById('quantity-decrease');
+        const increaseBtn = document.getElementById('quantity-increase');
+        const buyBtn = document.getElementById('buy-btn');
+        const backBtn = document.getElementById('back-to-product');
+        const orderForm = document.getElementById('order-form');
+        const productPage = document.getElementById('product-page');
+        const orderPage = document.getElementById('order-page');
+        const starsContainer = document.getElementById('stars-container');
+
+        // Флаг для предотвращения двойного клика
+        let isProcessingClick = false;
+        
+        // Обработчик уменьшения количества
+        const handleDecrease = () => {
+            if (isProcessingClick) return;
+            
+            isProcessingClick = true;
             if (quantity > 1) {
                 quantity--;
                 document.getElementById('quantity').textContent = quantity;
                 updatePrice();
             }
-        });
+            setTimeout(() => { isProcessingClick = false; }, 300);
+        };
         
-        document.getElementById('quantity-increase').addEventListener('click', () => {
+        // Обработчик увеличения количества
+        const handleIncrease = () => {
+            if (isProcessingClick) return;
+            
+            isProcessingClick = true;
             quantity++;
             document.getElementById('quantity').textContent = quantity;
             updatePrice();
-        });
+            setTimeout(() => { isProcessingClick = false; }, 300);
+        };
         
-        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
-        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
+        // Функция перехода на страницу заказа
+        const goToOrderPage = () => {
+            productPage.classList.remove('active');
+            orderPage.classList.add('active');
+            starsContainer.style.display = 'none';
+            
+            // Прокручиваем вверх страницы заказа
+            orderPage.scrollTo(0, 0);
+            
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.MainButton.setText("Оформить заказ")
+                    .show()
+                    .onClick(() => {
+                        document.getElementById('order-form').dispatchEvent(new Event('submit'));
+                    });
+            }
+        };
         
-        // Валидация при вводе
-        document.getElementById('order-form').addEventListener('input', (e) => {
+        // Функция возврата на страницу товара
+        const goToProductPage = () => {
+            orderPage.classList.remove('active');
+            productPage.classList.add('active');
+            starsContainer.style.display = 'block';
+            
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.MainButton.setText("Купить сейчас")
+                    .show()
+                    .onClick(goToOrderPage);
+            }
+        };
+
+        // Удаляем старые обработчики (на случай повторной инициализации)
+        decreaseBtn.removeEventListener('click', handleDecrease);
+        increaseBtn.removeEventListener('click', handleIncrease);
+        buyBtn.removeEventListener('click', goToOrderPage);
+        backBtn.removeEventListener('click', goToProductPage);
+        orderForm.removeEventListener('input', handleFormInput);
+        orderForm.removeEventListener('submit', processOrder);
+        
+        // Добавляем новые обработчики
+        decreaseBtn.addEventListener('click', handleDecrease);
+        increaseBtn.addEventListener('click', handleIncrease);
+        buyBtn.addEventListener('click', goToOrderPage);
+        backBtn.addEventListener('click', goToProductPage);
+        
+        // Обработчик ввода в форме
+        const handleFormInput = (e) => {
             if (e.target.tagName === 'INPUT') {
                 validateForm();
             }
-        });
+        };
+        orderForm.addEventListener('input', handleFormInput);
         
-        // Обработка отправки формы
-        document.getElementById('order-form').addEventListener('submit', processOrder);
+        // Обработчик отправки формы
+        orderForm.addEventListener('submit', processOrder);
         
+        // Проверка статуса платежа
         checkPaymentStatus();
+        
+        // Инициализация кнопки WebApp
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton.setText("Купить сейчас")
+                .show()
+                .onClick(goToOrderPage);
+        }
     });
   </script>
 </body>
