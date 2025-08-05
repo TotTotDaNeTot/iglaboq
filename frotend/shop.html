@@ -1,267 +1,241 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Журнал "Игла"</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: white;
-      background: #0d1117;
-      min-height: 100vh;
-      overflow-x: hidden;
-      line-height: 1.6;
-    }
-    .stars-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
-    }
-    .star {
-      position: absolute;
-      background: white;
-      border-radius: 50%;
-      animation: twinkle 3s infinite alternate;
-    }
-    @keyframes twinkle {
-      0% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-    .content {
-      position: relative;
-      z-index: 1;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 25px;
-    }
-    
-    /* Заголовок */
-    header {
-      margin-bottom: 30px;
-      padding: 15px 0;
-      text-align: center;
-    }
-    .logo {
-      font-size: 1.8rem;
-      font-weight: bold;
-      color: #fff;
-    }
-    
-    /* Страницы */
-    .page {
-      display: none;
-    }
-    .page.active {
-      display: block;
-    }
-    
-    /* Галерея */
-    .gallery-container {
-      position: relative;
-      width: 100%;
-      margin-bottom: 40px;
-      overflow: hidden;
-    }
-    .gallery-images-wrapper {
-      position: relative;
-      min-height: 400px;
-      height: 400px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .gallery-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      border-radius: 12px;
-      box-shadow: none !important;
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      -webkit-user-drag: none;
-      pointer-events: none;
-    }
-    .gallery-image.active {
-      display: block;
-    }
-    .gallery-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      background: rgba(0,0,0,0.7);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 2;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      opacity: 0.8;
-    }
-    .gallery-nav:hover {
-      opacity: 1;
-      background: rgba(0,0,0,0.8);
-    }
-    .gallery-prev {
-      left: 10px;
-    }
-    .gallery-next {
-      right: 10px;
-    }
-    .gallery-nav svg {
-      width: 24px;
-      height: 24px;
-      stroke: white;
-      stroke-width: 2;
-    }
-    .no-image {
-      text-align: center;
-      color: #999;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100%;
-    }
-    
-    /* Информация о товаре */
-    .journal-info {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 25px;
-      margin-bottom: 30px;
-    }
-    .journal-title {
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-    }
-    .journal-meta {
-      margin-bottom: 15px;
-      font-size: 1.1rem;
-    }
-    
-    /* Кнопки */
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 16px;
-      background: #2ea44f;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      margin-top: 25px;
-      cursor: pointer;
-      text-align: center;
-      transition: background 0.2s;
-    }
-    .btn:hover {
-      background: #2c974b;
-    }
-    .btn-back {
-      background: #333;
-      margin-top: 15px;
-    }
-    .btn-back:hover {
-      background: #444;
-    }
-    
-    /* Форма заказа */
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-      font-size: 1rem;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 14px;
-      border-radius: 8px;
-      border: none;
-      background: rgba(255,255,255,0.1);
-      color: white;
-      font-size: 1rem;
-    }
-    .form-group input:invalid {
-      outline: 2px solid #ff6b6b;
-    }
-    .error-message {
-      color: #ff6b6b;
-      font-size: 0.9rem;
-      margin-top: 8px;
-      display: none;
-    }
-    
-    /* Счетчик */
-    .quantity-control {
-      display: flex;
-      align-items: center;
-      margin: 25px 0;
-      justify-content: center;
-    }
-    .quantity-btn {
-      width: 40px;
-      height: 40px;
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .quantity-btn:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .quantity-value {
-      margin: 0 20px;
-      font-size: 20px;
-      min-width: 30px;
-      text-align: center;
-    }
-
-    .loader {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-  }
-
-  @keyframes spin {
-      to { transform: rotate(360deg); }
-  }
-
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал "Игла"</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .stars-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        .star {
+            position: absolute;
+            background-color: #fff;
+            border-radius: 50%;
+            animation: twinkle var(--duration) infinite ease-in-out;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        
+        .content {
+            max-width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .page {
+            display: none;
+        }
+        
+        .page.active {
+            display: block;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .gallery-container {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        
+        .gallery-images-wrapper {
+            overflow: hidden;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .gallery-images {
+            display: flex;
+            transition: transform 0.3s ease;
+        }
+        
+        .gallery-image {
+            width: 100%;
+            flex-shrink: 0;
+            display: none;
+        }
+        
+        .gallery-image.active {
+            display: block;
+        }
+        
+        .gallery-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 10;
+            display: none;
+        }
+        
+        .gallery-prev {
+            left: 10px;
+        }
+        
+        .gallery-next {
+            right: 10px;
+        }
+        
+        .no-image {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            text-align: center;
+            color: #999;
+        }
+        
+        .journal-info {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .journal-title {
+            margin: 0 0 10px;
+            font-size: 22px;
+        }
+        
+        .journal-meta {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        .quantity-control {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+        }
+        
+        .quantity-btn {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .quantity-value {
+            margin: 0 15px;
+            font-size: 18px;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .btn-back {
+            background-color: #95a5a6;
+            margin-top: 10px;
+        }
+        
+        .btn-back:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            font-size: 12px;
+            margin-top: 5px;
+            display: none;
+        }
+        
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .journal-description {
+            max-height: 150px;
+            overflow-y: auto;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+    </style>
 </head>
 <body>
   <div class="stars-container" id="stars-container"></div>
@@ -297,6 +271,8 @@
         <h1 id="journal-title" class="journal-title"></h1>
         <div id="journal-year" class="journal-meta"></div>
         <div id="journal-price" class="journal-meta"></div>
+        
+        <div class="journal-description" id="journal-description"></div>
         
         <div class="quantity-control">
           <button class="quantity-btn" id="quantity-decrease">-</button>
@@ -640,6 +616,7 @@
         // Устанавливаем данные журнала
         document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
         document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+        document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description') || "Описание отсутствует");
         updatePrice();
         
         // Настройка обработчиков событий
@@ -669,6 +646,6 @@
         loadAllImages();
         checkPaymentStatus();
     });
-</script>
+  </script>
 </body>
 </html>
