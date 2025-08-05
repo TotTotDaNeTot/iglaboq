@@ -16,6 +16,7 @@ import sys
 import os
 import requests
 import json
+import asyncio
 
 from gunicorn.glogging import Logger
 from yookassa import Configuration, Payment
@@ -26,6 +27,8 @@ from database import db
 
 import mysql.connector
 from mysql.connector import pooling
+
+from yookassa import Payment
 
 
 app = Flask(__name__)
@@ -86,27 +89,29 @@ def create_payment():
         user_id = data['user_id']
         chat_id = data.get('chat_id', user_id)
         amount = float(data['amount'])
-        is_mobile = data.get('is_mobile', False)
+        journal_id = data.get('journal_id')
 
         payment = Payment.create({
             "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
             "confirmation": {
                 "type": "redirect",
-                "return_url": f"https://t.me/CocoCamBot?start=payment_{user_id}"
+                "return_url": "https://t.me/CocoCamBot"  # Просто возвращаем в бота
             },
             "metadata": {
                 "user_id": user_id,
                 "chat_id": chat_id,
-                "journal_id": data.get('journal_id')
+                "journal_id": journal_id
             }
         })
 
-        # Сохранение в БД
+        # Сохраняем в БД
         conn = db_pool.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO payments (payment_id, user_id, chat_id, amount, status) VALUES (%s, %s, %s, %s, %s)",
-            (payment.id, user_id, chat_id, amount, 'pending')
+            """INSERT INTO payments 
+            (payment_id, user_id, chat_id, amount, status, journal_id) 
+            VALUES (%s, %s, %s, %s, %s, %s)""",
+            (payment.id, user_id, chat_id, amount, 'pending', journal_id)
         )
         conn.commit()
         cursor.close()
@@ -117,7 +122,6 @@ def create_payment():
             "payment_url": payment.confirmation.confirmation_url,
             "payment_id": payment.id
         })
-
     except Exception as e:
         logger.error(f"Payment creation failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
@@ -127,77 +131,149 @@ def create_payment():
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
     try:
+        logger.info(f"Raw webhook data: {request.data}")
+        
         event_json = request.json
         payment = event_json['object']
+        logger.info(f"Webhook received for payment: {payment['id']}, status: {payment['status']}")
         
-        if payment['status'] == 'succeeded':
-            # Извлекаем данные из платежа
-            metadata = payment.get('metadata', {})
-            user_id = metadata.get('user_id')
-            chat_id = metadata.get('chat_id')
-            payment_id = payment['id']
-            amount = payment['amount']['value']
+        # Обрабатываем оба статуса - waiting_for_capture и succeeded
+        if payment['status'] in ['waiting_for_capture', 'succeeded']:
+            # Для waiting_for_capture - подтверждаем платеж автоматически
+            if payment['status'] == 'waiting_for_capture':
+                from yookassa import Payment
+                Payment.capture(payment['id'])
+                logger.info(f"Payment {payment['id']} captured automatically")
             
-            # Обновляем статус в базе данных
-            update_payment_status(payment_id, 'succeeded')
+            # Обновляем статус в БД
+            db_status = 'succeeded' if payment['status'] == 'succeeded' else 'pending_capture'
+            rows_updated = update_payment_status(payment['id'], db_status)
+            logger.info(f"Database updated rows: {rows_updated}")
             
-            # Отправляем сообщение через JS (WebApp.sendData)
-            # Дополнительно отправляем через бота для надежности
-            payment_message = (
-                f"✅ Платеж успешен!\n"
-                f"Сумма: {amount} RUB\n"
-                f"Номер: {payment_id}\n"
-                f"Трек-номер будет отправлен в течение 24 часов"
-            )
-            
-            # Отправляем в оба места (и в чат, и через WebApp)
-            send_telegram_message(chat_id, payment_message)
-            
+            # Отправляем уведомление только для succeeded
+            if payment['status'] == 'succeeded':
+                metadata = payment.get('metadata', {})
+                chat_id = metadata.get('chat_id')
+                if chat_id:
+                    send_telegram_notification(
+                        chat_id,
+                        payment['id'],
+                        payment['amount']['value']
+                    )
+                    
         return jsonify({"status": "ok"}), 200
-        
     except Exception as e:
-        logger.error(f"Webhook error: {e}")
+        logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+    
+    
 
-def update_payment_status(payment_id: str, status: str):
-    """Обновляет статус платежа в базе данных"""
+def capture_payment(payment_id: str):
+    """Автоматически подтверждает платеж в ЮKassa"""
+    try:
+        response = Payment.capture(payment_id)
+        logger.info(f"Payment {payment_id} captured, new status: {response.status}")
+        return response
+    except Exception as e:
+        logger.error(f"Failed to capture payment {payment_id}: {str(e)}")
+        raise
+    
+    
+    
+    
+@app.route('/check_and_capture/<payment_id>', methods=['GET'])
+def check_and_capture(payment_id: str):
+    """Проверяет и подтверждает платеж вручную"""
+    try:
+        from yookassa import Payment
+        payment = Payment.find_one(payment_id)
+        
+        if payment.status == 'waiting_for_capture':
+            # Подтверждаем платеж
+            captured_payment = capture_payment(payment_id)
+            update_payment_status(payment_id, 'succeeded')
+            return jsonify({
+                "original_status": payment.status,
+                "new_status": captured_payment.status,
+                "captured": True
+            })
+        else:
+            update_payment_status(payment_id, payment.status)
+            return jsonify({"status": payment.status})
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+        
+    
+    
+
+def send_direct_notification(chat_id: int, payment_id: str, amount: str):
+    """Функция для прямой отправки уведомления"""
+    bot_token = os.getenv('BOT_TOKEN')
+    message = (
+        f"✅ Платеж успешен!\n"
+        f"ID: {payment_id}\n"
+        f"Сумма: {amount} RUB\n"
+        "Товар будет отправлен в течение 3 рабочих дней."
+    )
+    
+    requests.post(
+        f"https://api.telegram.org/bot{bot_token}/sendMessage",
+        json={
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+    )
+
+
+
+def send_telegram_notification(chat_id: int, payment_id: str, amount: str):
+    """Отправляет уведомление через Telegram API"""
+    bot_token = os.getenv('BOT_TOKEN')
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    payload = {
+        "chat_id": chat_id,
+        "text": (
+            f"✅ Платеж успешен!\n"
+            f"Сумма: {amount} RUB\n"
+            f"Номер: {payment_id}\n"
+            "Трек-номер будет отправлен в течение 24 часов"
+        ),
+        "parse_mode": "HTML"
+    }
+    
+    try:
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        logger.info(f"Telegram notification sent to {chat_id}")
+    except Exception as e:
+        logger.error(f"Failed to send Telegram notification: {e}")
+        
+        
+
+
+def update_payment_status(payment_id: str, status: str) -> int:
+    """Обновляет статус платежа и возвращает количество обновленных строк"""
     try:
         conn = db_pool.get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "UPDATE payments SET status = %s WHERE payment_id = %s",
+            "UPDATE payments SET status = %s, updated_at = NOW() WHERE payment_id = %s",
             (status, payment_id)
         )
         conn.commit()
+        return cursor.rowcount
     except Exception as e:
         logger.error(f"Database update error: {e}")
         raise
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        if cursor: cursor.close()
+        if conn: conn.close()
 
 
 
-@dp.message(WebAppData)
-async def handle_web_app_data(message: types.Message):
-    """Обработчик данных из WebApp"""
-    try:
-        data = json.loads(message.web_app_data.data)
-        
-        if data.get('type') == 'payment_success':
-            # Логируем полученные данные
-            logger.info(f"Received payment success: {data}")
-            
-            # Можно добавить дополнительную обработку,
-            # но основное сообщение уже отправлено из payment_webhook
-            pass
-            
-    except json.JSONDecodeError:
-        logger.error("Invalid JSON data from WebApp")
-    except Exception as e:
-        logger.error(f"WebApp data processing error: {e}")
 
 def send_telegram_message(chat_id: int, text: str) -> bool:
     """Отправляет сообщение в Telegram чат"""
@@ -218,6 +294,50 @@ def send_telegram_message(chat_id: int, text: str) -> bool:
         logger.error(f"Telegram message sending failed: {e}")
         return False
 
+
+
+
+# async def check_payment_status_in_db(payment_id: str) -> Optional[dict]:
+#     """Проверяет статус платежа в базе данных"""
+#     try:
+#         conn = db.get_connection()
+#         cursor = conn.cursor(dictionary=True)
+#         cursor.execute(
+#             "SELECT * FROM payments WHERE payment_id = %s",
+#             (payment_id,)
+#         )
+#         payment = cursor.fetchone()
+#         cursor.close()
+#         conn.close()
+#         return payment
+#     except Exception as e:
+#         logger.error(f"Database error checking payment: {e}")
+#         return None
+
+
+@app.route('/debug/payment/<payment_ref>', methods=['GET'])
+def debug_payment(payment_ref):
+    try:
+        conn = db.get_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """SELECT * FROM payments 
+            WHERE return_id = %s OR payment_id LIKE %s""",
+            (f"pay_{payment_ref}", f"%{payment_ref}%")
+        )
+        payment = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        return jsonify({
+            "exists": bool(payment),
+            "payment": payment
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+    
+    
 
 
 if __name__ == '__main__':
