@@ -139,6 +139,7 @@
       stroke-width: 2;
     }
     .no-image {
+      display: none;
       text-align: center;
       color: #999;
       position: absolute;
@@ -390,7 +391,7 @@
   </style>
 </head>
 <body>
-  <div class="preloader" id="preloader">
+  <div class="preloader" id="preloader" style="display: flex; opacity: 1;">
     <div class="planet-loader">
       <div class="planet"></div>
       <div class="ring"></div>
@@ -557,6 +558,8 @@
     }
 
     async function loadAllImages() {
+        setLoading(true);
+
         const galleryContainer = document.getElementById('gallery-images');
         const noImageElement = document.getElementById('no-image');
         const prevBtn = document.getElementById('gallery-prev');
@@ -678,12 +681,14 @@
         const preloader = document.getElementById('preloader');
         if (loading) {
             preloader.style.display = 'flex';
-            setTimeout(() => preloader.style.opacity = '1', 10);
+            preloader.style.opacity = '1';
         } else {
             preloader.style.opacity = '0';
-            setTimeout(() => preloader.style.display = 'none', 500);
+            setTimeout(() => {
+            preloader.style.display = 'none';
+            }, 500);
         }
-    }
+        }
 
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
