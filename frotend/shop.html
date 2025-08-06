@@ -84,7 +84,6 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background: transparent;
     }
     .gallery-image {
       max-width: 100%;
@@ -139,7 +138,16 @@
       stroke: white;
       stroke-width: 2;
     }
-    
+    .no-image {
+      display: none;
+      text-align: center;
+      color: #999;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+    }
     
     /* Информация о товаре */
     .journal-info {
@@ -408,10 +416,18 @@
         <div class="gallery-nav gallery-next" id="gallery-next">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6"/></svg>
         </div>
-        
         <div class="gallery-images-wrapper" id="gallery-wrapper">
-         <div id="gallery-images"></div>
+          <div id="gallery-images"></div>
+          <div id="no-image" class="no-image">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
+              <path d="M3 16L10 9L13 12L16 9L21 16"/>
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <circle cx="8.5" cy="8.5" r="2.5"/>
+            </svg>
+            <p>Загрузка обложки...</p>
+          </div>
         </div>
+      </div>
 
       <div class="journal-info">
         <h1 id="journal-title" class="journal-title"></h1>
@@ -665,14 +681,12 @@
         const preloader = document.getElementById('preloader');
         if (loading) {
             preloader.style.display = 'flex';
-            preloader.style.opacity = '1';
+            setTimeout(() => preloader.style.opacity = '1', 10);
         } else {
             preloader.style.opacity = '0';
-            setTimeout(() => {
-            preloader.style.display = 'none';
-            }, 500);
+            setTimeout(() => preloader.style.display = 'none', 500);
         }
-        }
+    }
 
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
