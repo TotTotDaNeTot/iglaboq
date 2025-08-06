@@ -98,9 +98,12 @@
       transform: translate(-50%, -50%);
       -webkit-user-drag: none;
       pointer-events: none;
+      transition: opacity 0.3s ease;
+      opacity: 0;
     }
     .gallery-image.active {
       display: block;
+      opacity: 1;
     }
     .gallery-nav {
       position: absolute;
@@ -497,6 +500,7 @@
     const journalId = params.get('journal');
     let currentImageIndex = 0;
     let images = [];
+    let animationTimeout = null;
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
@@ -671,56 +675,74 @@
         const nextBtn = document.getElementById('gallery-next');
         const galleryWrapper = document.getElementById('gallery-wrapper');
         
-        prevBtn.addEventListener('click', showPrevImage);
-        nextBtn.addEventListener('click', showNextImage);
+        // Удаляем старые обработчики
+        prevBtn.removeEventListener('click', showPrevImage);
+        nextBtn.removeEventListener('click', showNextImage);
+        galleryWrapper.removeEventListener('touchstart', handleTouchStart);
+        galleryWrapper.removeEventListener('touchend', handleTouchEnd);
+        
+        // Добавляем новые
+        prevBtn.addEventListener('click', debounce(showPrevImage, 300));
+        nextBtn.addEventListener('click', debounce(showNextImage, 300));
         
         let touchStartX = 0;
-        let touchStartY = 0;
         
-        galleryWrapper.addEventListener('touchstart', (e) => {
+        function handleTouchStart(e) {
             touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-        }, {passive: true});
+        }
         
-        galleryWrapper.addEventListener('touchend', (e) => {
-            if (isAnimating) return;
+        function handleTouchEnd(e) {
+            if (animationTimeout) return;
             
             const touchEndX = e.changedTouches[0].clientX;
-            const touchEndY = e.changedTouches[0].clientY;
             const diffX = touchStartX - touchEndX;
-            const diffY = touchStartY - touchEndY;
             
-            if (Math.abs(diffX) > Math.abs(diffY)) {
-                if (Math.abs(diffX) > 50) {
-                    diffX > 0 ? showNextImage() : showPrevImage();
-                }
+            if (Math.abs(diffX) > 50) {
+                diffX > 0 ? debounce(showNextImage, 300)() 
+                        : debounce(showPrevImage, 300)();
             }
-        }, {passive: true});
+        }
+        
+        galleryWrapper.addEventListener('touchstart', handleTouchStart, {passive: true});
+        galleryWrapper.addEventListener('touchend', handleTouchEnd, {passive: true});
+    }
+
+    // Функция для предотвращения множественных срабатываний
+    function debounce(func, delay) {
+        let timeout;
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), delay);
+        };
     }
 
     function showPrevImage() {
-        if (images.length <= 1 || isAnimating) return;
+        if (images.length <= 1 || animationTimeout) return;
         
-        isAnimating = true;
+        clearTimeout(animationTimeout);
+        
         images[currentImageIndex].classList.remove('active');
         currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
         images[currentImageIndex].classList.add('active');
         
-        setTimeout(() => {
-            isAnimating = false;
+        animationTimeout = setTimeout(() => {
+            animationTimeout = null;
         }, 300);
     }
 
     function showNextImage() {
-        if (images.length <= 1 || isAnimating) return;
+        if (images.length <= 1 || animationTimeout) return;
         
-        isAnimating = true;
+        clearTimeout(animationTimeout);
+        
         images[currentImageIndex].classList.remove('active');
         currentImageIndex = (currentImageIndex + 1) % images.length;
         images[currentImageIndex].classList.add('active');
         
-        setTimeout(() => {
-            isAnimating = false;
+        animationTimeout = setTimeout(() => {
+            animationTimeout = null;
         }, 300);
     }
 
