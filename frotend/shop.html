@@ -76,53 +76,48 @@
       width: 100%;
       margin-bottom: 40px;
       overflow: hidden;
+      min-height: 400px;
     }
     .gallery-images-wrapper {
       position: relative;
-      min-height: 400px;
       height: 400px;
       display: flex;
       justify-content: center;
       align-items: center;
       background: transparent;
-      overflow: hidden;
     }
     .gallery-image {
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
-      border-radius: 12px;
-      box-shadow: none !important;
-      display: none;
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      -webkit-user-drag: none;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
       opacity: 0;
+      transition: opacity 0.3s ease;
     }
     .gallery-image.active {
-      display: block;
       opacity: 1;
     }
     .gallery-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      background: rgba(0,0,0,0.7);
-      border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        background: rgba(0,0,0,0.7);
+        border-radius: 50%;
+        display: none; /* По умолчанию скрыты */
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        opacity: 0.8;
+        transition: opacity 0.2s;
+        }
+    .gallery-nav.visible {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 2;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      opacity: 0.8;
     }
     .gallery-nav:hover {
       opacity: 1;
@@ -494,121 +489,109 @@
     function setupGalleryNavigation() {
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
-        const galleryWrapper = document.getElementById('gallery-wrapper');
+        
+        // Показываем кнопки только если есть больше 1 изображения
+        if (images.length > 1) {
+            prevBtn.classList.add('visible');
+            nextBtn.classList.add('visible');
+        } else {
+            prevBtn.classList.remove('visible');
+            nextBtn.classList.remove('visible');
+        }
         
         // Очищаем старые обработчики
         prevBtn.onclick = null;
         nextBtn.onclick = null;
-        galleryWrapper.ontouchstart = null;
-        galleryWrapper.ontouchend = null;
         
-        // Новые обработчики
+        // Назначаем новые обработчики
         prevBtn.onclick = () => switchImage(-1);
         nextBtn.onclick = () => switchImage(1);
-        
-        let touchStartX = 0;
-        
-        galleryWrapper.ontouchstart = (e) => {
-            touchStartX = e.touches[0].clientX;
-        };
-        
-        galleryWrapper.ontouchend = (e) => {
-            if (isAnimating) return;
-            
-            const touchEndX = e.changedTouches[0].clientX;
-            const diffX = touchStartX - touchEndX;
-            
-            if (Math.abs(diffX) > 50) {
-                diffX > 0 ? switchImage(1) : switchImage(-1);
-            }
-        };
-    }
+        }
 
     function switchImage(direction) {
         if (images.length <= 1 || isAnimating) return;
         
         isAnimating = true;
+        const currentImage = images[currentImageIndex];
+        const nextIndex = (currentImageIndex + direction + images.length) % images.length;
+        const nextImage = images[nextIndex];
         
-        // Анимация исчезновения
-        images[currentImageIndex].style.opacity = '0';
+        // Подготовка следующего изображения
+        nextImage.style.opacity = '0';
+        nextImage.classList.add('active');
+        
+        // Анимация перехода
+        currentImage.style.opacity = '0';
         
         setTimeout(() => {
-            images[currentImageIndex].classList.remove('active');
-            currentImageIndex = (currentImageIndex + direction + images.length) % images.length;
-            images[currentImageIndex].classList.add('active');
-            images[currentImageIndex].style.opacity = '1';
-            
+            currentImage.classList.remove('active');
+            nextImage.style.opacity = '1';
+            currentImageIndex = nextIndex;
             isAnimating = false;
         }, 300);
-    }
+        }
 
     async function loadAllImages() {
         setLoading(true);
         const galleryContainer = document.getElementById('gallery-images');
-        const prevBtn = document.getElementById('gallery-prev');
-        const nextBtn = document.getElementById('gallery-next');
-        
         galleryContainer.innerHTML = '';
         images = [];
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
         
         try {
+            // Попробуйте загрузить из API
             const response = await fetch(`https://your-backend-api.com/get_journal_photo?journal_id=${journalId}`);
             if (response.ok) {
-                const data = await response.json();
-                if (data.image_url) {
-                    await loadSingleImage(data.image_url);
-                    return;
-                }
+            const data = await response.json();
+            if (data.image_url) {
+                await loadSingleImage(data.image_url);
+                return;
             }
-        } catch (e) {
-            console.log('Не удалось загрузить фото из БД');
-            showErrorImage();
-        }
-        
-        let imageNumber = 1;
-        while (true) {
+            }
+            
+            // Загрузка из GitHub
+            let imageNumber = 1;
+            const loadedImages = [];
+            
+            while (imageNumber <= 10) { // Ограничим максимальное количество изображений
             const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
             const imageUrl = await findImageWithAnyExtension(baseUrl);
+            
             if (!imageUrl) break;
-
+            
             const img = new Image();
             img.className = 'gallery-image';
-            img.style.opacity = '0';
             img.src = imageUrl;
             img.alt = `Изображение ${imageNumber}`;
             
             await new Promise((resolve) => {
                 img.onload = () => {
-                    galleryContainer.appendChild(img);
-                    images.push(img);
-                    
-                    if (images.length === 1) {
-                        img.classList.add('active');
-                        img.style.opacity = '1';
-                        setupGalleryNavigation();
-                    }
-                    
-                    if (images.length > 1) {
-                        prevBtn.style.display = 'flex';
-                        nextBtn.style.display = 'flex';
-                    }
-                    resolve();
+                galleryContainer.appendChild(img);
+                loadedImages.push(img);
+                resolve();
                 };
-                img.onerror = () => {
-                    showErrorImage();
-                    resolve();
-                };
+                img.onerror = resolve;
             });
             
             imageNumber++;
-        }
-
-        if (images.length === 0) {
+            }
+            
+            if (loadedImages.length > 0) {
+            images = loadedImages;
+            currentImageIndex = 0;
+            images[0].classList.add('active');
+            images[0].style.opacity = '1';
+            setupGalleryNavigation();
+            } else {
             showErrorImage();
+            }
+            
+        } catch (e) {
+            console.error('Ошибка загрузки изображений:', e);
+            showErrorImage();
+        } finally {
+            setLoading(false);
         }
-    }
+        }
 
     function showErrorImage() {
         const galleryContainer = document.getElementById('gallery-images');
@@ -625,21 +608,27 @@
     }
 
     function loadSingleImage(url) {
-        const galleryContainer = document.getElementById('gallery-images');
-        const img = new Image();
-        img.className = 'gallery-image active';
-        img.style.opacity = '1';
-        img.src = url;
-        img.alt = 'Обложка журнала';
-        
-        img.onload = () => {
+        return new Promise((resolve) => {
+            const galleryContainer = document.getElementById('gallery-images');
+            const img = new Image();
+            img.className = 'gallery-image active';
+            img.src = url;
+            img.alt = 'Обложка журнала';
+            
+            img.onload = () => {
             galleryContainer.appendChild(img);
-        };
-        
-        img.onerror = () => {
+            images = [img];
+            currentImageIndex = 0;
+            setupGalleryNavigation();
+            resolve();
+            };
+            
+            img.onerror = () => {
             showErrorImage();
-        };
-    }
+            resolve();
+            };
+        });
+        }
 
     async function findImageWithAnyExtension(baseUrl) {
         for (const ext of supportedFormats) {
