@@ -197,7 +197,8 @@
     }
 
     .btn {
-      display: none;
+      display: block; /* Было display: none */
+      background: #8774e1; /* Фиолетовый как в Telegram */
     }
 
     .form-group {
@@ -411,6 +412,7 @@
                    pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
             <div class="error-message" id="email-error">Введите корректный email</div>
           </div>
+          <button id="back-to-product" class="btn">Назад</button>
         </form>
       </div>
     </div>
@@ -442,26 +444,17 @@
     let isAnimating = false;
 
     function initMainButton() {
-      if (!window.Telegram?.WebApp) return;
-      
-      const activePage = document.querySelector('.page.active').id;
-      
-      if (activePage === 'product-page') {
-        Telegram.WebApp.MainButton
-          .setText("Купить сейчас")
-          .setBackgroundColor("#8774e1")
-          .setTextColor("#ffffff")
-          .show()
-          .onClick(goToOrderPage);
-      } else {
-        Telegram.WebApp.MainButton
-          .setText("Оформить заказ")
-          .setBackgroundColor("#8774e1")
-          .setTextColor("#ffffff")
-          .show()
-          .onClick(() => document.getElementById('order-form').dispatchEvent(new Event('submit')));
-      }
-    }
+        if (!window.Telegram?.WebApp) return;
+        
+        const btn = Telegram.WebApp.MainButton;
+        btn.setBackgroundColor("#8774e1").setTextColor("#ffffff");
+
+        if (document.getElementById('product-page').classList.contains('active')) {
+            btn.setText("Купить сейчас").onClick(goToOrderPage).show();
+        } else {
+            btn.setText("Оформить заказ").onClick(processOrder).show();
+        }
+        }
 
     function createStars() {
       const container = document.getElementById('stars-container');
@@ -715,31 +708,7 @@
       initMainButton();
     }
 
-    function validateForm() {
-      let isValid = true;
-      
-      const validateField = (id, regex, errorMsg) => {
-        const field = document.getElementById(id);
-        const error = document.getElementById(`${id}-error`);
-        const valid = regex.test(field.value);
-        
-        if (!valid) {
-          error.textContent = errorMsg;
-          error.style.display = 'block';
-          isValid = false;
-        } else {
-          error.style.display = 'none';
-        }
-        return valid;
-      };
-
-      validateField('city', /.+/, 'Введите город');
-      validateField('postcode', /^\d{6}$/, 'Введите 6 цифр почтового индекса');
-      validateField('phone', /^\+7\d{10}$/, 'Формат: +79991234567');
-      validateField('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Введите корректный email');
-      
-      return isValid;
-    }
+    
 
     async function processOrder(e) {
       if (e) e.preventDefault();
