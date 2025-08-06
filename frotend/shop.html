@@ -7,318 +7,333 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: white;
-      background: #0d1117;
-      min-height: 100vh;
-      overflow-x: hidden;
-      line-height: 1.6;
-    }
-    .stars-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
-    }
-    .star {
-      position: absolute;
-      background: white;
-      border-radius: 50%;
-      animation: twinkle 3s infinite alternate;
-    }
-    @keyframes twinkle {
-      0% { opacity: 0.3; }
-      100% { opacity: 1; }
-    }
-    .content {
-      position: relative;
-      z-index: 1;
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 25px;
-    }
-    
-    /* Заголовок */
-    header {
-      margin-bottom: 30px;
-      padding: 15px 0;
-      text-align: center;
-    }
-    .logo {
-      font-size: 1.8rem;
-      font-weight: bold;
-      color: #fff;
-    }
-    
-    /* Страницы */
-    .page {
-      display: none;
-    }
-    .page.active {
-      display: block;
-    }
-    
-    /* Галерея */
-    .gallery-container {
-      position: relative;
-      width: 100%;
-      margin-bottom: 40px;
-      overflow: hidden;
-    }
-    .gallery-images-wrapper {
-      position: relative;
-      min-height: 400px;
-      height: 400px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    .gallery-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      border-radius: 12px;
-      box-shadow: none !important;
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      -webkit-user-drag: none;
-      pointer-events: none;
-    }
-    .gallery-image.active {
-      display: block;
-    }
-    .gallery-nav {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 44px;
-      height: 44px;
-      background: rgba(0,0,0,0.7);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      z-index: 2;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-      opacity: 0.8;
-    }
-    .gallery-nav:hover {
-      opacity: 1;
-      background: rgba(0,0,0,0.8);
-    }
-    .gallery-prev {
-      left: 10px;
-    }
-    .gallery-next {
-      right: 10px;
-    }
-    .gallery-nav svg {
-      width: 24px;
-      height: 24px;
-      stroke: white;
-      stroke-width: 2;
-    }
-    .no-image {
-      text-align: center;
-      color: #999;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100%;
-    }
-    
-    /* Информация о товаре */
-    .journal-info {
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 8px;
-      padding: 25px;
-      margin-bottom: 30px;
-    }
-    .journal-title {
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-    }
-    .journal-meta {
-      margin-bottom: 15px;
-      font-size: 1.1rem;
-    }
-    
-    /* Блок описания */
-    .journal-description {
-      max-height: 150px;
-      overflow-y: auto;
-      margin: 20px 0;
-      padding: 15px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      font-size: 0.95rem;
-      line-height: 1.5;
-    }
-    .journal-description::-webkit-scrollbar {
-      width: 5px;
-    }
-    .journal-description::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
-    }
-    
-    /* Кнопки */
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 16px;
-      background: #2ea44f;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 1.1rem;
-      font-weight: bold;
-      margin-top: 25px;
-      cursor: pointer;
-      text-align: center;
-      transition: background 0.2s;
-    }
-    .btn:hover {
-      background: #2c974b;
-    }
-    .btn-back {
-      background: #333;
-      margin-top: 15px;
-    }
-    .btn-back:hover {
-      background: #444;
-    }
-    
-    /* Форма заказа */
-    .form-group {
-      margin-bottom: 20px;
-    }
-    .form-group label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-      font-size: 1rem;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 14px;
-      border-radius: 8px;
-      border: none;
-      background: rgba(255,255,255,0.1);
-      color: white;
-      font-size: 1rem;
-    }
-    .form-group input:invalid {
-      outline: 2px solid #ff6b6b;
-    }
-    .error-message {
-      color: #ff6b6b;
-      font-size: 0.9rem;
-      margin-top: 8px;
-      display: none;
-    }
-    
-    /* Счетчик */
-    .quantity-control {
-      display: flex;
-      align-items: center;
-      margin: 25px 0;
-      justify-content: center;
-    }
-    .quantity-btn {
-      width: 40px;
-      height: 40px;
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 50%;
-      color: white;
-      font-size: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    .quantity-btn:hover {
-      background: rgba(255,255,255,0.2);
-    }
-    .quantity-value {
-      margin: 0 20px;
-      font-size: 20px;
-      min-width: 30px;
-      text-align: center;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     }
 
-    .loader {
-      display: inline-block;
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-radius: 50%;
-      border-top-color: #fff;
-      animation: spin 1s ease-in-out infinite;
-    }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: white;
+  background: #0d1117;
+  min-height: 100vh;
+  overflow-x: hidden;
+  line-height: 1.6;
+}
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+.stars-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+}
 
-    .error-message {
-            color: #ff5555;
-            font-size: 12px;
-            margin-top: 4px;
-            display: none;
-        }
-        
-        input:invalid {
-            border-color: #ff5555;
-        }
-        
-        input:valid {
-            border-color: #4CAF50;
-        }
-        
-        .global-error {
-            display: block !important;
-            padding: 10px;
-            background: #ffebee;
-            border-radius: 4px;
-            margin: 15px 0;
-            text-align: center;
-        }
-        
-        .loader {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 8px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle 3s infinite alternate;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 25px;
+}
+
+header {
+  margin-bottom: 30px;
+  padding: 15px 0;
+  text-align: center;
+}
+
+.logo {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.gallery-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 40px;
+  overflow: hidden;
+}
+
+.gallery-images-wrapper {
+  position: relative;
+  min-height: 400px;
+  height: 400px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gallery-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: none !important;
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.gallery-image.active {
+  display: block;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  opacity: 0.8;
+}
+
+.gallery-nav:hover {
+  opacity: 1;
+  background: rgba(0,0,0,0.8);
+}
+
+.gallery-prev {
+  left: 10px;
+}
+
+.gallery-next {
+  right: 10px;
+}
+
+.gallery-nav svg {
+  width: 24px;
+  height: 24px;
+  stroke: white;
+  stroke-width: 2;
+}
+
+.no-image {
+  text-align: center;
+  color: #999;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+}
+
+.journal-info {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 30px;
+}
+
+.journal-title {
+  font-size: 1.5rem;
+  margin-bottom: 20px;
+}
+
+.journal-meta {
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.journal-description {
+  max-height: 150px;
+  overflow-y: auto;
+  margin: 20px 0;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.journal-description::-webkit-scrollbar {
+  width: 5px;
+}
+
+.journal-description::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.btn {
+  display: none; /* Скрываем кастомные кнопки */
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 14px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 1rem;
+}
+
+.form-group input:invalid {
+  outline: 2px solid #ff6b6b;
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  margin-top: 8px;
+  display: none;
+}
+
+.quantity-control {
+  display: flex;
+  align-items: center;
+  margin: 25px 0;
+  justify-content: center;
+}
+
+.quantity-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.quantity-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.quantity-value {
+  margin: 0 20px;
+  font-size: 20px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.preloader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #0d1117;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  transition: opacity 0.5s;
+}
+
+.planet-loader {
+  width: 80px;
+  height: 80px;
+  position: relative;
+}
+
+.planet {
+  width: 60px;
+  height: 60px;
+  background: radial-gradient(circle at 30% 30%, #8774e1, #6a5acd);
+  border-radius: 50%;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  box-shadow: 0 0 20px rgba(135, 116, 225, 0.5);
+}
+
+.ring {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border: 2px solid transparent;
+  border-top-color: #8774e1;
+  border-radius: 50%;
+  animation: rotate 2s linear infinite;
+}
+
+.ring:nth-child(2) {
+  width: 120px;
+  height: 120px;
+  animation-duration: 3s;
+  border-top-color: #6a5acd;
+}
+
+.ring:nth-child(3) {
+  width: 140px;
+  height: 140px;
+  animation-duration: 4s;
+  border-top-color: #8774e1;
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.global-error {
+  display: block !important;
+  padding: 10px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 4px;
+  margin: 15px 0;
+  text-align: center;
+  color: #ff6b6b;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
         
   </style>
 </head>
@@ -408,11 +423,18 @@
 
   <script>
     // Инициализация WebApp
-     if (window.Telegram?.WebApp) {
+    if (window.Telegram?.WebApp) {
         Telegram.WebApp.expand();
-        Telegram.WebApp.MainButton.hide(); // Скрываем стандартную кнопку
         
-        // Получаем данные пользователя из WebApp
+        // Настройка MainButton
+        Telegram.WebApp.MainButton
+            .setText("Купить сейчас")
+            .setBackgroundColor("#8774e1")
+            .setTextColor("#ffffff")
+            .show()
+            .onClick(goToOrderPage);
+        
+        // Получаем данные пользователя
         const user = Telegram.WebApp.initDataUnsafe?.user;
         if (user) {
             window.userId = user.id;
@@ -428,9 +450,55 @@
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
     let isAnimating = false;
-    let isProcessing = false;
 
-    // Загрузка данных журнала из БД
+    // Создание звездного фона
+    function createStars() {
+        const container = document.getElementById('stars-container');
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.cssText = `
+                width: ${Math.random() * 3}px;
+                height: ${Math.random() * 3}px;
+                left: ${Math.random() * 100}%;
+                top: ${Math.random() * 100}%;
+                opacity: ${Math.random() * 0.7 + 0.3};
+                animation-duration: ${Math.random() * 4 + 2}s;
+            `;
+            container.appendChild(star);
+        }
+    }
+
+    // Создание прелоадера
+    function createPreloader() {
+        const preloader = document.createElement('div');
+        preloader.id = 'preloader';
+        preloader.className = 'preloader';
+        preloader.innerHTML = `
+            <div class="planet-loader">
+                <div class="planet"></div>
+                <div class="ring"></div>
+                <div class="ring"></div>
+                <div class="ring"></div>
+            </div>
+        `;
+        document.body.appendChild(preloader);
+        return preloader;
+    }
+
+    // Управление прелоадером
+    function setLoading(loading) {
+        const preloader = document.getElementById('preloader') || createPreloader();
+        if (loading) {
+            preloader.style.display = 'flex';
+            setTimeout(() => preloader.style.opacity = '1', 10);
+        } else {
+            preloader.style.opacity = '0';
+            setTimeout(() => preloader.style.display = 'none', 500);
+        }
+    }
+
+    // Загрузка данных журнала
     async function loadJournalData() {
         try {
             const response = await fetch(`https://your-backend-api.com/get_journal?id=${journalId}`);
@@ -438,7 +506,6 @@
             
             const journalData = await response.json();
             
-            // Устанавливаем данные из БД
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
@@ -447,7 +514,6 @@
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            // Используем параметры URL как резервный вариант
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
@@ -467,7 +533,6 @@
         nextBtn.style.display = 'none';
         noImageElement.style.display = 'flex';
         
-        // Пробуем загрузить из БД
         try {
             const response = await fetch(`https://your-backend-api.com/get_journal_photo?journal_id=${journalId}`);
             if (response.ok) {
@@ -481,7 +546,6 @@
             console.log('Не удалось загрузить фото из БД, пробуем стандартный способ');
         }
         
-        // Стандартный способ загрузки
         let imageNumber = 1;
         while (true) {
             const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
@@ -636,7 +700,14 @@
         document.getElementById('stars-container').style.display = 'none';
         
         if (window.Telegram?.WebApp) {
-            Telegram.WebApp.MainButton.setText("Оформить заказ").show().onClick(processOrder);
+            Telegram.WebApp.MainButton
+                .setText("Оформить заказ")
+                .setBackgroundColor("#8774e1")
+                .setTextColor("#ffffff")
+                .show()
+                .onClick(() => {
+                    document.getElementById('order-form').dispatchEvent(new Event('submit'));
+                });
         }
     }
 
@@ -646,76 +717,49 @@
         document.getElementById('stars-container').style.display = 'block';
         
         if (window.Telegram?.WebApp) {
-            Telegram.WebApp.MainButton.setText("Купить").show().onClick(goToOrderPage);
+            Telegram.WebApp.MainButton
+                .setText("Купить сейчас")
+                .setBackgroundColor("#8774e1")
+                .setTextColor("#ffffff")
+                .show()
+                .onClick(goToOrderPage);
         }
     }
 
-    // НОВАЯ ФУНКЦИЯ ВАЛИДАЦИИ ФОРМЫ
     function validateForm() {
         let isValid = true;
         
-        // Проверка города
-        const city = document.getElementById('city').value.trim();
-        if (!city) {
-            document.getElementById('city-error').textContent = 'Введите город';
-            isValid = false;
-        } else {
-            document.getElementById('city-error').textContent = '';
-        }
-        
-        // Проверка почтового индекса
-        const postcode = document.getElementById('postcode').value;
-        if (!/^\d{6}$/.test(postcode)) {
-            document.getElementById('postcode-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('postcode-error').style.display = 'none';
-        }
-        
-        // Проверка телефона
-        const phone = document.getElementById('phone').value;
-        if (!/^\+7\d{10}$/.test(phone)) {
-            document.getElementById('phone-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('phone-error').style.display = 'none';
-        }
-        
-        // Проверка email
-        const email = document.getElementById('email').value;
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            document.getElementById('email-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('email-error').style.display = 'none';
-        }
+        const validateField = (id, regex, errorMsg) => {
+            const field = document.getElementById(id);
+            const error = document.getElementById(`${id}-error`);
+            const valid = regex.test(field.value);
+            
+            if (!valid) {
+                error.textContent = errorMsg;
+                error.style.display = 'block';
+                isValid = false;
+            } else {
+                error.style.display = 'none';
+            }
+            return valid;
+        };
+
+        validateField('city', /.+/, 'Введите город');
+        validateField('postcode', /^\d{6}$/, 'Введите 6 цифр почтового индекса');
+        validateField('phone', /^\+7\d{10}$/, 'Формат: +79991234567');
+        validateField('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Введите корректный email');
         
         return isValid;
     }
 
-    // МОДИФИЦИРОВАННАЯ ФУНКЦИЯ ОБРАБОТКИ ЗАКАЗА
     async function processOrder(e) {
         if (e) e.preventDefault();
         
-        if (!validateForm()) {
-            return;
-        }
-
-        const form = document.getElementById('order-form');
-        const submitBtn = document.getElementById('submit-btn');
-        const originalText = submitBtn.textContent;
+        if (!validateForm()) return;
         
         try {
-            // Блокируем кнопку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
+            setLoading(true);
             
-            // Показываем индикатор загрузки в WebApp
-            if (window.Telegram?.WebApp?.MainButton) {
-                Telegram.WebApp.MainButton.showProgress();
-            }
-            
-            // Собираем данные формы
             const formData = {
                 amount: basePrice * quantity,
                 journal_id: journalId,
@@ -727,7 +771,6 @@
                 postcode: document.getElementById('postcode').value
             };
 
-            // Создаем платеж
             const response = await fetch('https://worldly-natural-glassfish.cloudpub.ru/create_payment', {
                 method: 'POST',
                 headers: { 
@@ -737,17 +780,11 @@
                 body: JSON.stringify(formData)
             });
             
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
             
             const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || "Ошибка при создании платежа");
-            }
+            if (!result.success) throw new Error(result.error || "Ошибка при создании платежа");
 
-            // Перенаправляем на страницу оплаты
             if (window.Telegram?.WebApp?.openLink) {
                 Telegram.WebApp.openLink(result.payment_url);
             } else {
@@ -756,35 +793,63 @@
             
         } catch (error) {
             console.error('Ошибка:', error);
-            // Показываем ошибку в интерфейсе
             const errorContainer = document.createElement('div');
             errorContainer.className = 'error-message global-error';
             errorContainer.textContent = error.message;
-            form.appendChild(errorContainer);
+            document.getElementById('order-form').appendChild(errorContainer);
             
-            setTimeout(() => {
-                errorContainer.remove();
-            }, 5000);
+            setTimeout(() => errorContainer.remove(), 5000);
         } finally {
-            // Разблокируем кнопку через 3 секунды
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                
-                if (window.Telegram?.WebApp?.MainButton) {
-                    Telegram.WebApp.MainButton.hideProgress();
-                }
-            }, 3000);
+            setLoading(false);
         }
     }
 
-    // Инициализация при загрузке страницы - МОДИФИЦИРОВАННЫЙ БЛОК
+    function checkPaymentStatus() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has('payment_success')) {
+            showSuccessMessage();
+            
+            if (window.Telegram?.WebApp?.sendData) {
+                Telegram.WebApp.sendData(JSON.stringify({
+                    type: 'payment_success',
+                    payment_id: params.get('payment_id'),
+                    amount: params.get('amount')
+                }));
+            }
+            
+            if (window.Telegram?.WebApp?.close) {
+                setTimeout(() => Telegram.WebApp.close(), 3000);
+            }
+        }
+    }
+
+    function showSuccessMessage() {
+        document.body.innerHTML = `
+            <div style="text-align: center; padding: 40px;">
+                <div style="font-size: 60px; color: #8774e1;">✓</div>
+                <h2>Оплата прошла успешно!</h2>
+                <p>Спасибо за ваш заказ.</p>
+                <p>Детали отправлены в Telegram.</p>
+            </div>
+        `;
+    }
+
+    // Инициализация при загрузке страницы
     document.addEventListener('DOMContentLoaded', () => {
         createStars();
-        loadJournalData();
-        loadAllImages();
-        updatePrice();
+        createPreloader();
+        setLoading(true);
         
+        // Загрузка данных
+        Promise.all([
+            loadJournalData(),
+            loadAllImages()
+        ]).then(() => {
+            setLoading(false);
+            updatePrice();
+        });
+
+        // Обработчики счетчика
         document.getElementById('quantity-decrease').addEventListener('click', () => {
             if (quantity > 1) {
                 quantity--;
@@ -798,321 +863,17 @@
             document.getElementById('quantity').textContent = quantity;
             updatePrice();
         });
-        
-        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
-        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
-        
-        // Валидация при вводе
+
+        // Валидация формы
         document.getElementById('order-form').addEventListener('input', (e) => {
-            if (e.target.tagName === 'INPUT') {
-                validateForm();
-            }
+            if (e.target.tagName === 'INPUT') validateForm();
         });
         
         // Обработка отправки формы
         document.getElementById('order-form').addEventListener('submit', processOrder);
         
-        checkPaymentStatus();
-    });
-
-    // Проверка статуса платежа при возврате
-    function checkPaymentStatus() {
-        const params = new URLSearchParams(window.location.search);
-        if (params.has('payment_success')) {
-            showSuccessMessage();
-            
-            // Отправляем данные в бота через WebApp
-            if (window.Telegram?.WebApp?.sendData) {
-                const paymentId = params.get('payment_id');
-                const amount = params.get('amount');
-                
-                Telegram.WebApp.sendData(JSON.stringify({
-                    type: 'payment_success',
-                    payment_id: paymentId,
-                    amount: amount
-                }));
-            }
-            
-            // Закрываем мини-приложение через 3 секунды
-            if (window.Telegram?.WebApp?.close) {
-                setTimeout(() => Telegram.WebApp.close(), 3000);
-            }
-        }
-    }
-
-    // Показать сообщение об успешной оплате
-    function showSuccessMessage() {
-        document.body.innerHTML = `
-            <div style="text-align: center; padding: 40px;">
-                <div style="font-size: 60px; color: green;">✓</div>
-                <h2>Оплата прошла успешно!</h2>
-                <p>Спасибо за ваш заказ.</p>
-                <p>Детали отправлены в Telegram.</p>
-            </div>
-        `;
-    }
-
-    function createStars() {
-        const container = document.getElementById('stars-container');
-        for (let i = 0; i < 200; i++) {
-            const star = document.createElement('div');
-            star.className = 'star';
-            star.style.cssText = `
-                width: ${Math.random() * 3}px;
-                height: ${Math.random() * 3}px;
-                left: ${Math.random() * 100}%;
-                top: ${Math.random() * 100}%;
-                opacity: ${Math.random() * 0.7 + 0.3};
-                animation-duration: ${Math.random() * 4 + 2}s;
-            `;
-            container.appendChild(star);
-        }
-    }
-
-    function updatePrice() {
-        const totalPrice = basePrice * quantity;
-        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
-    }
-
-    // Инициализация при загрузке страницы
-    // НОВАЯ ФУНКЦИЯ ВАЛИДАЦИИ ФОРМЫ
-    function validateForm() {
-        let isValid = true;
-        
-        // Проверка города
-        const city = document.getElementById('city').value.trim();
-        if (!city) {
-            document.getElementById('city-error').textContent = 'Введите город';
-            isValid = false;
-        } else {
-            document.getElementById('city-error').textContent = '';
-        }
-        
-        // Проверка почтового индекса
-        const postcode = document.getElementById('postcode').value;
-        if (!/^\d{6}$/.test(postcode)) {
-            document.getElementById('postcode-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('postcode-error').style.display = 'none';
-        }
-        
-        // Проверка телефона
-        const phone = document.getElementById('phone').value;
-        if (!/^\+7\d{10}$/.test(phone)) {
-            document.getElementById('phone-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('phone-error').style.display = 'none';
-        }
-        
-        // Проверка email
-        const email = document.getElementById('email').value;
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            document.getElementById('email-error').style.display = 'block';
-            isValid = false;
-        } else {
-            document.getElementById('email-error').style.display = 'none';
-        }
-        
-        return isValid;
-    }
-
-    // МОДИФИЦИРОВАННАЯ ФУНКЦИЯ ОБРАБОТКИ ЗАКАЗА
-    async function processOrder(e) {
-        if (e) e.preventDefault();
-        
-        if (!validateForm()) {
-            return;
-        }
-
-        const form = document.getElementById('order-form');
-        const submitBtn = document.getElementById('submit-btn');
-        const originalText = submitBtn.textContent;
-        
-        try {
-            // Блокируем кнопку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
-            
-            // Показываем индикатор загрузки в WebApp
-            if (window.Telegram?.WebApp?.MainButton) {
-                Telegram.WebApp.MainButton.showProgress();
-            }
-            
-            // Собираем данные формы
-            const formData = {
-                amount: basePrice * quantity,
-                journal_id: journalId,
-                user_id: window.userId,
-                chat_id: window.chatId,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                city: document.getElementById('city').value,
-                postcode: document.getElementById('postcode').value
-            };
-
-            // Создаем платеж
-            const response = await fetch('https://worldly-natural-glassfish.cloudpub.ru/create_payment', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (!result.success) {
-                throw new Error(result.error || "Ошибка при создании платежа");
-            }
-
-            // Перенаправляем на страницу оплаты
-            if (window.Telegram?.WebApp?.openLink) {
-                Telegram.WebApp.openLink(result.payment_url);
-            } else {
-                window.location.href = result.payment_url;
-            }
-            
-        } catch (error) {
-            console.error('Ошибка:', error);
-            // Показываем ошибку в интерфейсе
-            const errorContainer = document.createElement('div');
-            errorContainer.className = 'error-message global-error';
-            errorContainer.textContent = error.message;
-            form.appendChild(errorContainer);
-            
-            setTimeout(() => {
-                errorContainer.remove();
-            }, 5000);
-        } finally {
-            // Разблокируем кнопку через 3 секунды
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                
-                if (window.Telegram?.WebApp?.MainButton) {
-                    Telegram.WebApp.MainButton.hideProgress();
-                }
-            }, 3000);
-        }
-    }
-
-    // Инициализация при загрузке страницы - МОДИФИЦИРОВАННЫЙ БЛОК
-    document.addEventListener('DOMContentLoaded', () => {
-        // Инициализация приложения
-        createStars();
-        loadJournalData();
-        loadAllImages();
-        updatePrice();
-        
-        // Получаем элементы один раз
-        const decreaseBtn = document.getElementById('quantity-decrease');
-        const increaseBtn = document.getElementById('quantity-increase');
-        const buyBtn = document.getElementById('buy-btn');
-        const backBtn = document.getElementById('back-to-product');
-        const orderForm = document.getElementById('order-form');
-        const productPage = document.getElementById('product-page');
-        const orderPage = document.getElementById('order-page');
-        const starsContainer = document.getElementById('stars-container');
-
-        // Флаг для предотвращения двойного клика
-        let isProcessingClick = false;
-        
-        // Обработчик уменьшения количества
-        const handleDecrease = () => {
-            if (isProcessingClick) return;
-            
-            isProcessingClick = true;
-            if (quantity > 1) {
-                quantity--;
-                document.getElementById('quantity').textContent = quantity;
-                updatePrice();
-            }
-            setTimeout(() => { isProcessingClick = false; }, 300);
-        };
-        
-        // Обработчик увеличения количества
-        const handleIncrease = () => {
-            if (isProcessingClick) return;
-            
-            isProcessingClick = true;
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-            setTimeout(() => { isProcessingClick = false; }, 300);
-        };
-        
-        // Функция перехода на страницу заказа
-        const goToOrderPage = () => {
-            productPage.classList.remove('active');
-            orderPage.classList.add('active');
-            starsContainer.style.display = 'none';
-            
-            // Прокручиваем вверх страницы заказа
-            orderPage.scrollTo(0, 0);
-            
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.MainButton.setText("Оформить заказ")
-                    .show()
-                    .onClick(() => {
-                        document.getElementById('order-form').dispatchEvent(new Event('submit'));
-                    });
-            }
-        };
-        
-        // Функция возврата на страницу товара
-        const goToProductPage = () => {
-            orderPage.classList.remove('active');
-            productPage.classList.add('active');
-            starsContainer.style.display = 'block';
-            
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.MainButton.setText("Купить сейчас")
-                    .show()
-                    .onClick(goToOrderPage);
-            }
-        };
-
-        // Удаляем старые обработчики (на случай повторной инициализации)
-        decreaseBtn.removeEventListener('click', handleDecrease);
-        increaseBtn.removeEventListener('click', handleIncrease);
-        buyBtn.removeEventListener('click', goToOrderPage);
-        backBtn.removeEventListener('click', goToProductPage);
-        orderForm.removeEventListener('input', handleFormInput);
-        orderForm.removeEventListener('submit', processOrder);
-        
-        // Добавляем новые обработчики
-        decreaseBtn.addEventListener('click', handleDecrease);
-        increaseBtn.addEventListener('click', handleIncrease);
-        buyBtn.addEventListener('click', goToOrderPage);
-        backBtn.addEventListener('click', goToProductPage);
-        
-        // Обработчик ввода в форме
-        const handleFormInput = (e) => {
-            if (e.target.tagName === 'INPUT') {
-                validateForm();
-            }
-        };
-        orderForm.addEventListener('input', handleFormInput);
-        
-        // Обработчик отправки формы
-        orderForm.addEventListener('submit', processOrder);
-        
         // Проверка статуса платежа
         checkPaymentStatus();
-        
-        // Инициализация кнопки WebApp
-        if (window.Telegram?.WebApp) {
-            Telegram.WebApp.MainButton.setText("Купить сейчас")
-                .show()
-                .onClick(goToOrderPage);
-        }
     });
   </script>
 </body>
