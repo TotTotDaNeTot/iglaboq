@@ -286,7 +286,8 @@
       font-size: 1rem;
     }
     .form-group input:invalid {
-      outline: 2px solid #ff6b6b;
+      border-color: #ff5555;
+      animation: shake 0.5s;
     }
     .error-message {
       color: #ff6b6b;
@@ -337,6 +338,11 @@
 
     @keyframes spin {
       to { transform: rotate(360deg); }
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-5px); }
+      40%, 80% { transform: translateX(5px); }
     }
 
     .error-message {
@@ -428,8 +434,11 @@
 
       <div class="form-group">
         <label for="fullname">ФИО (полностью)</label>
-        <input type="text" id="fullname" name="fullname" required pattern="[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+">
-        <div class="error-message" id="fullname-error">Введите ФИО в формате: Иванов Иван Иванович (каждое слово с большой буквы)</div>
+        <input type="text" id="fullname" name="fullname" required 
+              placeholder="Иванов | Иван | Иванович">
+        <div class="error-message" id="fullname-error">
+          Введите ФИО в формате: Фамилия | Имя | Отчество
+        </div>
       </div>
       
       <form id="order-form">
@@ -693,9 +702,74 @@
         }
     }
 
+    // Функция для форматирования ФИО с разделителями
+    function formatFullNameInput() {
+      const fullnameInput = document.getElementById('fullname');
+      const errorElement = document.getElementById('fullname-error');
+      
+      fullnameInput.addEventListener('input', function(e) {
+        // Удаляем лишние пробелы и разделители
+        let value = this.value.replace(/\s+/g, ' ').replace(/\s*\|\s*/g, '|').trim();
+        
+        // Автоматически добавляем "|" при вводе пробела
+        if (value.endsWith(' ')) {
+          value = value.trim() + ' | ';
+        }
+        
+        this.value = value;
+        validateFullName();
+      });
+      
+      // Валидация при потере фокуса
+      fullnameInput.addEventListener('blur', validateFullName);
+    }
+
+    // Функция валидации ФИО
+    function validateFullName() {
+      const fullnameInput = document.getElementById('fullname');
+      const errorElement = document.getElementById('fullname-error');
+      const value = fullnameInput.value.trim();
+      
+      // Проверка на пустое поле
+      if (!value) {
+        errorElement.textContent = 'Поле ФИО обязательно для заполнения';
+        errorElement.style.display = 'block';
+        fullnameInput.classList.add('invalid');
+        return false;
+      }
+      
+      // Проверка формата (3 части, разделенные |)
+      const parts = value.split('|').map(part => part.trim());
+      if (parts.length !== 3 || parts.some(part => !part)) {
+        errorElement.textContent = 'Введите ФИО в формате: Фамилия | Имя | Отчество';
+        errorElement.style.display = 'block';
+        fullnameInput.classList.add('invalid');
+        return false;
+      }
+      
+      // Проверка, что каждая часть начинается с заглавной буквы
+      const nameRegex = /^[А-ЯЁ][а-яё]*$/;
+      if (!parts.every(part => nameRegex.test(part))) {
+        errorElement.textContent = 'Каждая часть ФИО должна начинаться с заглавной буквы и содержать только русские буквы';
+        errorElement.style.display = 'block';
+        fullnameInput.classList.add('invalid');
+        return false;
+      }
+      
+      // Если все проверки пройдены
+      errorElement.style.display = 'none';
+      fullnameInput.classList.remove('invalid');
+      return true;
+    }
+
     // ==================== ФОРМА ЗАКАЗА ====================
     function validateForm() {
         let isValid = true;
+
+        // Валидация ФИО
+        if (!validateFullName()) {
+          isValid = false;
+        }
 
         // Проверка ФИО
         const fullname = document.getElementById('fullname').value.trim();
@@ -751,72 +825,83 @@
     }
 
     async function processOrder(e) {
-        if (e) e.preventDefault();
-        
-        if (!validateForm()) return;
-
-        const form = document.getElementById('order-form');
-        const submitBtn = document.getElementById('submit-btn');
-        const originalText = submitBtn.textContent;
-        
-        try {
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
-            
-            if (window.Telegram?.WebApp?.MainButton) {
-                Telegram.WebApp.MainButton.showProgress();
-            }
-            
-            const formData = {
-                amount: basePrice * quantity,
-                journal_id: journalId,
-                user_id: window.userId,
-                chat_id: window.chatId,
-                fullname: document.getElementById('fullname').value,
-                email: document.getElementById('email').value,
-                phone: document.getElementById('phone').value,
-                city: document.getElementById('city').value,
-                postcode: document.getElementById('postcode').value
-            };
-
-            const response = await fetch('https://bitingly-important-eagle.cloudpub.ru/create_payment', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            });
-            
-            if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-            
-            const result = await response.json();
-            if (!result.success) throw new Error(result.error || "Ошибка при создании платежа");
-
-            if (window.Telegram?.WebApp?.openLink) {
-                Telegram.WebApp.openLink(result.payment_url);
-            } else {
-                window.location.href = result.payment_url;
-            }
-            
-        } catch (error) {
-            console.error('Ошибка:', error);
-            const errorContainer = document.createElement('div');
-            errorContainer.className = 'error-message global-error';
-            errorContainer.textContent = error.message;
-            form.appendChild(errorContainer);
-            
-            setTimeout(() => errorContainer.remove(), 5000);
-        } finally {
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-                
-                if (window.Telegram?.WebApp?.MainButton) {
-                    Telegram.WebApp.MainButton.hideProgress();
-                }
-            }, 3000);
+      if (e) e.preventDefault();
+      
+      if (!validateForm()) {
+        // Прокрутка к первой ошибке
+        const firstError = document.querySelector('.invalid');
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
+        return;
+      }
+
+      const form = document.getElementById('order-form');
+      const submitBtn = document.getElementById('submit-btn');
+      const originalText = submitBtn.textContent;
+      
+      try {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
+        
+        if (window.Telegram?.WebApp?.MainButton) {
+          Telegram.WebApp.MainButton.showProgress();
+        }
+        
+        // Форматируем ФИО перед отправкой
+        const fullnameParts = document.getElementById('fullname').value.split('|').map(p => p.trim());
+        const formattedFullname = fullnameParts.join(' | ');
+        
+        const formData = {
+          amount: basePrice * quantity,
+          journal_id: journalId,
+          user_id: window.userId,
+          chat_id: window.chatId,
+          fullname: formattedFullname,
+          email: document.getElementById('email').value,
+          phone: document.getElementById('phone').value,
+          city: document.getElementById('city').value,
+          postcode: document.getElementById('postcode').value
+        };
+
+        const response = await fetch('https://bitingly-important-eagle.cloudpub.ru/create_payment', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+        
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || "Ошибка при создании платежа");
+
+        if (window.Telegram?.WebApp?.openLink) {
+          Telegram.WebApp.openLink(result.payment_url);
+        } else {
+          window.location.href = result.payment_url;
+        }
+        
+      } catch (error) {
+        console.error('Ошибка:', error);
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'error-message global-error';
+        errorContainer.textContent = error.message;
+        form.appendChild(errorContainer);
+        
+        setTimeout(() => errorContainer.remove(), 5000);
+      } finally {
+        setTimeout(() => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          
+          if (window.Telegram?.WebApp?.MainButton) {
+            Telegram.WebApp.MainButton.hideProgress();
+          }
+        }, 3000);
+      }
     }
 
     // ==================== ЗВЕЗДНОЕ НЕБО ====================
@@ -872,6 +957,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         createStars();
         setLoading(true);
+        formatFullNameInput();
         
         // Загружаем данные параллельно
         Promise.all([
