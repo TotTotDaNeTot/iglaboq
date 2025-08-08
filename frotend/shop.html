@@ -425,6 +425,12 @@
     <div id="order-page" class="page">
     <div class="journal-info">
       <h2>Данные для доставки</h2>
+
+      <div class="form-group">
+        <label for="fullname">ФИО (полностью)</label>
+        <input type="text" id="fullname" name="fullname" required pattern="[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+">
+        <div class="error-message" id="fullname-error">Введите ФИО в формате: Иванов Иван Иванович (каждое слово с большой буквы)</div>
+      </div>
       
       <form id="order-form">
         <div class="form-group">
@@ -690,6 +696,20 @@
     // ==================== ФОРМА ЗАКАЗА ====================
     function validateForm() {
         let isValid = true;
+
+        // Проверка ФИО
+        const fullname = document.getElementById('fullname').value.trim();
+        if (!fullname) {
+            document.getElementById('fullname-error').textContent = 'Введите ФИО';
+            document.getElementById('fullname-error').style.display = 'block';
+            isValid = false;
+        } else if (!/^[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+\s[А-ЯЁ][а-яё]+$/.test(fullname)) {
+            document.getElementById('fullname-error').textContent = 'Формат: Иванов Иван Иванович (каждое слово с большой буквы)';
+            document.getElementById('fullname-error').style.display = 'block';
+            isValid = false;
+        } else {
+            document.getElementById('fullname-error').style.display = 'none';
+        }
         
         // Проверка города
         const city = document.getElementById('city').value.trim();
@@ -752,6 +772,7 @@
                 journal_id: journalId,
                 user_id: window.userId,
                 chat_id: window.chatId,
+                fullname: document.getElementById('fullname').value,
                 email: document.getElementById('email').value,
                 phone: document.getElementById('phone').value,
                 city: document.getElementById('city').value,
