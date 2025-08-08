@@ -286,8 +286,7 @@
       font-size: 1rem;
     }
     .form-group input:invalid {
-      border-color: #ff5555;
-      animation: shake 0.5s;
+      outline: 2px solid #ff6b6b;
     }
     .error-message {
       color: #ff6b6b;
@@ -338,11 +337,6 @@
 
     @keyframes spin {
       to { transform: rotate(360deg); }
-    }
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%, 60% { transform: translateX(-5px); }
-      40%, 80% { transform: translateX(5px); }
     }
 
     .error-message {
@@ -702,64 +696,106 @@
         }
     }
 
-    // Функция для форматирования ФИО с разделителями
     function formatFullNameInput() {
       const fullnameInput = document.getElementById('fullname');
-      const errorElement = document.getElementById('fullname-error');
       
-      fullnameInput.addEventListener('input', function(e) {
-        // Удаляем лишние пробелы и разделители
-        let value = this.value.replace(/\s+/g, ' ').replace(/\s*\|\s*/g, '|').trim();
-        
-        // Автоматически добавляем "|" при вводе пробела
-        if (value.endsWith(' ')) {
-          value = value.trim() + ' | ';
+      fullnameInput.addEventListener('keydown', function(e) {
+        if (e.key === ' ') {
+          e.preventDefault(); // Отменяем стандартное действие пробела
+          
+          const currentValue = this.value;
+          const cursorPosition = this.selectionStart;
+          
+          // Если последний символ не пробел и не |
+          if (!currentValue.endsWith(' ') && !currentValue.endsWith('|')) {
+            this.value = currentValue + ' | ';
+            // Перемещаем курсор после добавленного " | "
+            this.setSelectionRange(cursorPosition + 3, cursorPosition + 3);
+          }
         }
-        
-        this.value = value;
-        validateFullName();
+      });
+      
+      // Запрещаем ввод | вручную
+      fullnameInput.addEventListener('input', function(e) {
+        if (e.data === '|') {
+          this.value = this.value.replace(/\|/g, '');
+        }
       });
       
       // Валидация при потере фокуса
       fullnameInput.addEventListener('blur', validateFullName);
     }
 
-    // Функция валидации ФИО
+    function setupFormHandlers() {
+      const fullnameInput = document.getElementById('fullname');
+      
+      // Автоматическая вставка разделителей
+      fullnameInput.addEventListener('keydown', function(e) {
+        if (e.key === ' ') {
+          e.preventDefault();
+          
+          const currentValue = this.value;
+          const cursorPosition = this.selectionStart;
+          
+          if (!currentValue.endsWith(' ') && !currentValue.endsWith('|')) {
+            this.value = currentValue + ' | ';
+            this.setSelectionRange(cursorPosition + 3, cursorPosition + 3);
+          }
+        }
+      });
+      
+      // Запрет ручного ввода |
+      fullnameInput.addEventListener('input', function(e) {
+        if (e.data === '|') {
+          this.value = this.value.replace(/\|/g, '');
+        }
+        
+        // Автоматическая капитализация
+        if (this.value.length === 1) {
+          this.value = this.value.toUpperCase();
+        }
+        if (this.value.includes(' | ')) {
+          const parts = this.value.split('|');
+          this.value = parts.map(part => {
+            const trimmed = part.trim();
+            return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+          }).join(' | ');
+        }
+      });
+      
+      // Валидация
+      fullnameInput.addEventListener('blur', validateFullName);
+    }
+
     function validateFullName() {
       const fullnameInput = document.getElementById('fullname');
       const errorElement = document.getElementById('fullname-error');
       const value = fullnameInput.value.trim();
       
-      // Проверка на пустое поле
       if (!value) {
-        errorElement.textContent = 'Поле ФИО обязательно для заполнения';
-        errorElement.style.display = 'block';
-        fullnameInput.classList.add('invalid');
+        showError(fullnameInput, errorElement, 'Поле ФИО обязательно для заполнения');
         return false;
       }
       
-      // Проверка формата (3 части, разделенные |)
       const parts = value.split('|').map(part => part.trim());
       if (parts.length !== 3 || parts.some(part => !part)) {
-        errorElement.textContent = 'Введите ФИО в формате: Фамилия | Имя | Отчество';
-        errorElement.style.display = 'block';
-        fullnameInput.classList.add('invalid');
+        showError(fullnameInput, errorElement, 'Введите ФИО полностью: Фамилия Имя Отчество');
         return false;
       }
       
-      // Проверка, что каждая часть начинается с заглавной буквы
-      const nameRegex = /^[А-ЯЁ][а-яё]*$/;
-      if (!parts.every(part => nameRegex.test(part))) {
-        errorElement.textContent = 'Каждая часть ФИО должна начинаться с заглавной буквы и содержать только русские буквы';
-        errorElement.style.display = 'block';
-        fullnameInput.classList.add('invalid');
-        return false;
-      }
-      
-      // Если все проверки пройдены
-      errorElement.style.display = 'none';
-      fullnameInput.classList.remove('invalid');
+      hideError(fullnameInput, errorElement);
       return true;
+    }
+
+    function showError(input, errorElement, message) {
+      errorElement.textContent = message;
+      errorElement.style.display = 'block';
+      input.classList.add('invalid');
+    }
+
+    function hideError(input, errorElement) {
+      errorElement.style.display = 'none';
+      input.classList.remove('invalid');
     }
 
     // ==================== ФОРМА ЗАКАЗА ====================
@@ -953,11 +989,26 @@
         `;
     }
 
+    fullnameInput.addEventListener('input', function(e) {
+      // Капитализация первых букв каждого слова
+      if (this.value.length === 1) {
+        this.value = this.value.toUpperCase();
+      }
+      if (this.value.endsWith(' | ')) {
+        const parts = this.value.split('|');
+        this.value = parts.map(part => {
+          const trimmed = part.trim();
+          return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+        }).join(' | ');
+      }
+    });
+
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     document.addEventListener('DOMContentLoaded', () => {
         createStars();
         setLoading(true);
         formatFullNameInput();
+        setupFormHandlers();
         
         // Загружаем данные параллельно
         Promise.all([
