@@ -679,38 +679,122 @@
     // ==================== ОБРАБОТКА ФИО ====================
     function setupFullNameHandling() {
         const fullnameInput = document.getElementById('fullname');
+        const errorElement = document.getElementById('fullname-error');
         
+        // Очищаем поле при первом клике, если оно пустое
+        fullnameInput.addEventListener('focus', function() {
+            if (this.value === '') {
+                this.value = '';
+            }
+        });
+
+        // Обработчик нажатия клавиш
         fullnameInput.addEventListener('keydown', function(e) {
-            if (e.key === ' ') {
-                e.preventDefault();
-                const cursorPos = this.selectionStart;
-                const currentValue = this.value;
-                
-                if (!currentValue.endsWith(' | ')) {
-                    this.value = currentValue + ' | ';
-                    this.setSelectionRange(cursorPos + 3, cursorPos + 3);
+            const cursorPos = this.selectionStart;
+            const currentValue = this.value;
+            const parts = currentValue.split('|').map(part => part.trim());
+            
+            // Разрешаем Backspace и Delete
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                // Если пытаемся удалить разделитель " | ", удаляем сразу 3 символа
+                if (e.key === 'Backspace' && cursorPos > 2 && 
+                    currentValue.substr(cursorPos-3, 3) === ' | ') {
+                    this.value = currentValue.substring(0, cursorPos-3) + currentValue.substring(cursorPos);
+                    this.setSelectionRange(cursorPos-3, cursorPos-3);
+                    e.preventDefault();
                 }
+                return;
+            }
+            
+            // Запрещаем пробел, если уже есть 3 части
+            if (parts.length >= 3 && e.key === ' ') {
+                e.preventDefault();
+                return;
+            }
+            
+            // Автоматически добавляем разделитель при пробеле
+            if (e.key === ' ' && parts.length < 3) {
+                const currentParts = currentValue.split('|');
+                if (currentParts.length < 3) {
+                    setTimeout(() => {
+                        this.value = this.value + ' | ';
+                        this.setSelectionRange(this.value.length, this.value.length);
+                    }, 0);
+                }
+                e.preventDefault();
             }
         });
         
+        // Обработчик ввода
         fullnameInput.addEventListener('input', function(e) {
+            // Запрещаем прямой ввод символа "|"
             if (e.data === '|') {
                 this.value = this.value.replace(/\|/g, '');
+                return;
             }
             
-            // Автоматическая капитализация
+            // Автоматическая капитализация каждой части
             const parts = this.value.split('|').map(part => {
                 const trimmed = part.trim();
+                if (trimmed.length === 0) return '';
                 return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
             });
             
-            if (parts.length > 0) {
-                this.value = parts.join(' | ');
+            // Собираем обратно с разделителями
+            this.value = parts.join(' | ');
+            
+            // Удаляем лишние разделители, если частей больше 3
+            if (parts.length > 3) {
+                this.value = parts.slice(0, 3).join(' | ');
             }
         });
         
-        fullnameInput.addEventListener('blur', validateFullName);
+        // Валидация при потере фокуса
+        fullnameInput.addEventListener('blur', function() {
+            validateFullName();
+        });
+        
+        // Валидация перед отправкой формы
+        document.getElementById('order-form').addEventListener('submit', function(e) {
+            if (!validateFullName()) {
+                e.preventDefault();
+                fullnameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        function validateFullName() {
+            const value = fullnameInput.value.trim();
+            const parts = value.split('|').map(part => part.trim());
+            
+            errorElement.style.display = 'none';
+            fullnameInput.classList.remove('invalid');
+            
+            if (!value) {
+                errorElement.textContent = 'Поле ФИО обязательно для заполнения';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            if (parts.length !== 3 || parts.some(part => !part)) {
+                errorElement.textContent = 'Введите ФИО полностью в формате: Фамилия | Имя | Отчество';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            const nameRegex = /^[A-ZА-ЯЁ][a-zа-яё-]*$/;
+            if (!parts.every(part => nameRegex.test(part))) {
+                errorElement.textContent = 'Каждая часть должна начинаться с заглавной буквы и содержать только буквы и дефисы';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            return true;
+        }
     }
+
 
     function validateFullName() {
         const fullnameInput = document.getElementById('fullname');
