@@ -691,79 +691,39 @@
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
-            console.log('Загрузка данных журнала... ID:', journalId);
-            
-            // Добавляем индикатор загрузки
-            document.getElementById('journal-quantity').textContent = "Проверяем наличие...";
-            document.getElementById('journal-quantity').className = "journal-meta loading-status";
-            
-            // Делаем запрос к API
-            const response = await fetch(`https://your-backend-api.com/get_journal?id=${journalId}`);
+            const response = await fetch(`/get_journal?id=${journalId}`);
             
             if (!response.ok) {
-                throw new Error(`Ошибка HTTP: ${response.status}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const journalData = await response.json();
-            console.log('Данные получены:', journalData);
-
-            // ВРЕМЕННО: Принудительно устанавливаем quantity, если его нет
+            
+            // Проверка наличия quantity
             if (typeof journalData.quantity === 'undefined') {
-                console.warn('Поле quantity отсутствует, используем тестовое значение');
-                journalData.quantity = 10; // Тестовое значение
+                console.error('Поле quantity отсутствует в ответе сервера');
+                throw new Error('Не удалось получить данные о количестве');
             }
 
-            // Обновляем интерфейс
-            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
-            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
-            document.getElementById('journal-price').textContent = `Цена: ${(parseFloat(journalData.price) || 0).toFixed(2)}₽`;
-            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
+            // Обновление интерфейса
+            document.getElementById('journal-quantity').textContent = 
+                journalData.quantity > 0 ? `В наличии: ${journalData.quantity} шт.` : "Нет в наличии";
             
-            // Устанавливаем количество
-            const quantityAvailable = parseInt(journalData.quantity) || 0;
-            const quantityElement = document.getElementById('journal-quantity');
+            // Установка максимального количества
+            document.getElementById('quantity').setAttribute('data-max', journalData.quantity);
             
-            if (quantityAvailable > 0) {
-                quantityElement.textContent = `В наличии: ${quantityAvailable} шт.`;
-                quantityElement.className = "journal-meta in-stock";
-            } else {
-                quantityElement.textContent = "Нет в наличии";
-                quantityElement.className = "journal-meta out-of-stock";
-            }
-            
-            // Устанавливаем лимит для счётчика
-            document.getElementById('quantity').setAttribute('data-max', quantityAvailable);
-            console.log('Установлено максимальное количество:', quantityAvailable);
-
-            // Настраиваем кнопку покупки
-            const buyBtn = document.getElementById('buy-btn');
-            if (quantityAvailable <= 0) {
-                buyBtn.disabled = true;
-                buyBtn.textContent = 'Нет в наличии';
-                buyBtn.className = "btn out-of-stock-btn";
-            } else {
-                buyBtn.disabled = false;
-                buyBtn.textContent = 'Купить сейчас';
-                buyBtn.className = "btn";
+            // Блокировка кнопки если нет в наличии
+            if (journalData.quantity <= 0) {
+                document.getElementById('buy-btn').disabled = true;
+                document.getElementById('buy-btn').textContent = 'Нет в наличии';
             }
 
-            basePrice = parseFloat(journalData.price) || 0;
-            updatePrice();
-
+            return journalData;
+            
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            
-            // ВРЕМЕННОЕ РЕШЕНИЕ - используем тестовые данные
-            const testQuantity = 10;
-            document.getElementById('journal-quantity').textContent = `В наличии: ${testQuantity} шт. (тестовые данные)`;
-            document.getElementById('quantity').setAttribute('data-max', testQuantity);
-            document.getElementById('journal-quantity').className = "journal-meta test-data";
-            
-            // Устанавливаем данные из URL, если API недоступен
-            const params = new URLSearchParams(window.location.search);
-            document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
-            document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-            document.getElementById('journal-price').textContent = `Цена: ${(parseFloat(params.get('price')) || 0).toFixed(2)}₽`;
+            document.getElementById('journal-quantity').textContent = "Данные о количестве недоступны";
+            throw error;
         }
     }
 
