@@ -408,6 +408,7 @@
         <h1 id="journal-title" class="journal-title"></h1>
         <div id="journal-year" class="journal-meta"></div>
         <div id="journal-price" class="journal-meta"></div>
+        <div id="journal-quantity" class="journal-meta" style="color: #4CAF50; font-weight: bold;"></div>
         
         <!-- Добавленный блок описания -->
         <div class="journal-description" id="journal-description"></div>
@@ -636,17 +637,47 @@
             if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
+            
+            // Заполняем данные о журнале
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
+            document.getElementById('journal-price').textContent = `Цена: ${parseFloat(journalData.price || 0).toFixed(2)}₽`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
+            
+            // Устанавливаем базовую цену
             basePrice = parseFloat(journalData.price) || 0;
+            
+            // Обработка количества
+            const availableQuantity = parseInt(journalData.quantity) || 0;
+            const quantityElement = document.getElementById('journal-quantity');
+            const increaseBtn = document.getElementById('quantity-increase');
+            const buyBtn = document.getElementById('buy-btn');
+            
+            if (availableQuantity > 0) {
+                quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+                quantityElement.style.color = '#4CAF50'; // Зеленый для "в наличии"
+                increaseBtn.disabled = false;
+                buyBtn.disabled = false;
+            } else {
+                quantityElement.textContent = 'Нет в наличии';
+                quantityElement.style.color = '#ff5555'; // Красный для "нет в наличии"
+                increaseBtn.disabled = true;
+                buyBtn.disabled = true;
+            }
+            
+            // Обновляем цену
             updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
+            // Fallback на параметры URL если API недоступно
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
+            
+            // Устанавливаем значения по умолчанию при ошибке
+            document.getElementById('journal-quantity').textContent = 'Доступность неизвестна';
+            document.getElementById('journal-quantity').style.color = '#FFA500'; // Оранжевый для неизвестного статуса
         }
     }
 
