@@ -691,38 +691,66 @@
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
+            console.log(`Запрашиваем журнал ID: ${journalId}`);
+            
             const response = await fetch(`/get_journal?id=${journalId}`);
+            console.log('Статус ответа:', response.status);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Ошибка сервера: ${response.status}`);
             }
 
             const journalData = await response.json();
+            console.log('Полученные данные:', journalData);
+
+            // Проверка обязательных полей
+            const requiredFields = ['title', 'price', 'quantity', 'description'];
+            const missingFields = requiredFields.filter(field => !(field in journalData));
             
-            // Проверка наличия quantity
-            if (typeof journalData.quantity === 'undefined') {
-                console.error('Поле quantity отсутствует в ответе сервера');
-                throw new Error('Не удалось получить данные о количестве');
+            if (missingFields.length > 0) {
+                throw new Error(`Отсутствуют поля: ${missingFields.join(', ')}`);
             }
 
             // Обновление интерфейса
-            document.getElementById('journal-quantity').textContent = 
-                journalData.quantity > 0 ? `В наличии: ${journalData.quantity} шт.` : "Нет в наличии";
+            document.getElementById('journal-title').textContent = journalData.title;
+            document.getElementById('journal-year').textContent = journalData.year ? `Год выпуска: ${journalData.year}` : "";
+            document.getElementById('journal-price').textContent = `Цена: ${parseFloat(journalData.price).toFixed(2)}₽`;
+            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             
-            // Установка максимального количества
-            document.getElementById('quantity').setAttribute('data-max', journalData.quantity);
+            // Обработка количества
+            const quantity = parseInt(journalData.quantity) || 0;
+            const quantityElement = document.getElementById('journal-quantity');
             
-            // Блокировка кнопки если нет в наличии
-            if (journalData.quantity <= 0) {
-                document.getElementById('buy-btn').disabled = true;
-                document.getElementById('buy-btn').textContent = 'Нет в наличии';
+            if (quantity > 0) {
+                quantityElement.textContent = `В наличии: ${quantity} шт.`;
+                quantityElement.style.color = '#4CAF50'; // зелёный
+            } else {
+                quantityElement.textContent = "Нет в наличии";
+                quantityElement.style.color = '#f44336'; // красный
             }
+            
+            // Установка лимита для счётчика
+            document.getElementById('quantity').setAttribute('data-max', quantity);
+            
+            // Настройка кнопки
+            const buyBtn = document.getElementById('buy-btn');
+            buyBtn.disabled = quantity <= 0;
+            buyBtn.textContent = quantity <= 0 ? 'Нет в наличии' : 'Купить сейчас';
 
             return journalData;
-            
+
         } catch (error) {
-            console.error('Ошибка загрузки данных:', error);
+            console.error('Ошибка загрузки:', error);
+            
+            // Жёстко прописанные fallback-значения
             document.getElementById('journal-quantity').textContent = "Данные о количестве недоступны";
+            document.getElementById('journal-quantity').style.color = '#FF9800'; // оранжевый
+            document.getElementById('journal-description').textContent = "Не удалось загрузить описание журнала";
+            
+            // Блокируем покупку при ошибке
+            document.getElementById('buy-btn').disabled = true;
+            document.getElementById('quantity').setAttribute('data-max', '0');
+            
             throw error;
         }
     }
