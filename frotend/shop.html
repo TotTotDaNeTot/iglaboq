@@ -362,6 +362,23 @@
             margin: 15px 0;
             text-align: center;
         }
+
+        .journal-meta {
+            margin-bottom: 8px;
+            font-size: 1rem;
+            color: #aaa;
+        }
+
+        .quantity-value {
+            transition: transform 0.2s;
+            margin: 0 20px;
+            font-size: 20px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .quantity-value.changed {
+            transform: scale(1.2);
+        }
   </style>
 </head>
 <body>
@@ -408,6 +425,7 @@
         <h1 id="journal-title" class="journal-title"></h1>
         <div id="journal-year" class="journal-meta"></div>
         <div id="journal-price" class="journal-meta"></div>
+        <div id="journal-quantity" class="journal-meta"></div>
         
         <!-- Добавленный блок описания -->
         <div class="journal-description" id="journal-description"></div>
@@ -638,14 +656,28 @@
             const journalData = await response.json();
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
+            document.getElementById('journal-price').textContent = `Цена: ${(parseFloat(journalData.price) || 0).toFixed(2)}₽`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             basePrice = parseFloat(journalData.price) || 0;
+            
+            // Добавьте этот блок для отображения количества
+            const quantityAvailable = journalData.quantity || 0;
+            document.getElementById('journal-quantity').textContent = 
+                quantityAvailable > 0 ? `В наличии: ${quantityAvailable} шт.` : "Нет в наличии";
+            
+            // Блокируем кнопку если нет в наличии
+            if (quantityAvailable <= 0) {
+                document.getElementById('buy-btn').disabled = true;
+                document.getElementById('buy-btn').textContent = 'Нет в наличии';
+            }
+            
             updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+            document.getElementById('journal-price').textContent = `Цена: ${(parseFloat(params.get('price')) || 0)}₽`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
         }
     }
@@ -874,6 +906,13 @@
 
     async function processOrder(e) {
         if (e) e.preventDefault();
+
+        // Проверка количества
+        const maxQuantity = parseInt(document.getElementById('quantity').getAttribute('max')) || 0;
+        if (quantity > maxQuantity) {
+            showError('Извините, количество уменьшилось. Обновите страницу.');
+            return;
+        }
         
         if (!validateForm()) {
             const firstError = document.querySelector('.invalid');
@@ -976,19 +1015,41 @@
         });
 
         // Обработчики количества
+        // Обработчик уменьшения количества
         document.getElementById('quantity-decrease').addEventListener('click', () => {
+            const maxQuantity = parseInt(document.getElementById('quantity').getAttribute('max')) || 999;
             if (quantity > 1) {
                 quantity--;
-                document.getElementById('quantity').textContent = quantity;
+                const quantityElement = document.getElementById('quantity');
+                quantityElement.textContent = quantity;
+                quantityElement.classList.add('changed');
+                setTimeout(() => quantityElement.classList.remove('changed'), 200);
                 updatePrice();
             }
         });
-        
+
+        // Обработчик увеличения количества
         document.getElementById('quantity-increase').addEventListener('click', () => {
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
+            const maxQuantity = parseInt(document.getElementById('quantity').getAttribute('max')) || 999;
+            if (quantity < maxQuantity) {
+                quantity++;
+                const quantityElement = document.getElementById('quantity');
+                quantityElement.textContent = quantity;
+                quantityElement.classList.add('changed');
+                setTimeout(() => quantityElement.classList.remove('changed'), 200);
+                updatePrice();
+            } else {
+                showError('Достигнуто максимальное количество товара');
+            }
         });
+
+        function showError(message) {
+            const errorElement = document.createElement('div');
+            errorElement.className = 'error-message global-error';
+            errorElement.textContent = message;
+            document.body.appendChild(errorElement);
+            setTimeout(() => errorElement.remove(), 3000);
+        }
         
         // Навигация
         document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
