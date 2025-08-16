@@ -996,31 +996,50 @@
         setLoading(true);
         setupFullNameHandling();
         
+        // Загрузка данных
         Promise.all([
             loadJournalData(),
             loadAllImages()
         ]).then(() => {
             updatePrice();
             setLoading(false);
-        }).catch(() => {
+            
+            // Обработчики количества
+            document.getElementById('quantity-decrease').addEventListener('click', () => {
+                if (quantity > 1) {
+                    quantity--;
+                    document.getElementById('quantity').textContent = quantity;
+                    updatePrice();
+                    
+                    // Активируем кнопку увеличения если была отключена
+                    document.getElementById('quantity-increase').disabled = false;
+                }
+            });
+
+            document.getElementById('quantity-increase').addEventListener('click', () => {
+                const availableText = document.getElementById('journal-quantity').textContent;
+                const availableMatch = availableText.match(/(\d+)/);
+                const maxQuantity = availableMatch ? parseInt(availableMatch[0]) : 1;
+                
+                if (quantity < maxQuantity) {
+                    quantity++;
+                    document.getElementById('quantity').textContent = quantity;
+                    updatePrice();
+                    
+                    // Дизейблим кнопку если достигли максимума
+                    document.getElementById('quantity-increase').disabled = quantity >= maxQuantity;
+                }
+            });
+            
+        }).catch((error) => {
+            console.error('Ошибка загрузки:', error);
             setLoading(false);
+            
+            // Устанавливаем значения по умолчанию при ошибке
+            document.getElementById('journal-quantity').textContent = 'Доступность неизвестна';
+            document.getElementById('journal-quantity').style.color = '#FFA500';
         });
 
-        // Обработчики количества
-        document.getElementById('quantity-decrease').addEventListener('click', () => {
-            if (quantity > 1) {
-                quantity--;
-                document.getElementById('quantity').textContent = quantity;
-                updatePrice();
-            }
-        });
-        
-        document.getElementById('quantity-increase').addEventListener('click', () => {
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-        });
-        
         // Навигация
         document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
         document.getElementById('back-to-product').addEventListener('click', goToProductPage);
