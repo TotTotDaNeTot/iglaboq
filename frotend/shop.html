@@ -632,8 +632,8 @@
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
-            const response = await fetch(`https://your-backend-api.com/get_journal?id=${journalId}`);
-            if (!response.ok) throw new Error('Ошибка загрузки данных');
+            const response = await fetch(`/get_journal?id=${journalId}`);
+            if (!response.ok) throw new Error('Ошибка загрузки');
             
             const journalData = await response.json();
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
@@ -641,6 +641,24 @@
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             basePrice = parseFloat(journalData.price) || 0;
             updatePrice();
+
+            const quantityAvailable = journalData.quantity || 0;
+            document.getElementById('journal-quantity').textContent = 
+                quantityAvailable > 0 ? `В наличии: ${quantityAvailable} шт.` : "Нет в наличии";
+            
+            // Блокируем кнопку если нет в наличии
+            if (quantityAvailable <= 0) {
+                document.getElementById('buy-btn').disabled = true;
+                document.getElementById('buy-btn').textContent = 'Нет в наличии';
+            }
+            
+            // Устанавливаем максимальное количество
+            const quantityInput = document.getElementById('quantity');
+            quantityInput.max = quantityAvailable;
+            if (quantity > quantityAvailable) {
+                quantity = quantityAvailable;
+                quantityInput.value = quantity;
+            }
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
@@ -874,6 +892,13 @@
 
     async function processOrder(e) {
         if (e) e.preventDefault();
+
+        // Проверка количества
+        const quantityAvailable = parseInt(document.getElementById('quantity').max);
+        if (quantity > quantityAvailable) {
+            showError('Извините, количество уменьшилось. Обновите страницу.');
+            return;
+        }
         
         if (!validateForm()) {
             const firstError = document.querySelector('.invalid');
