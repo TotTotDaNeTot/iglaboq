@@ -340,28 +340,45 @@
     }
 
     .error-message {
-            color: #ff5555;
-            font-size: 12px;
-            margin-top: 4px;
-            display: none;
-        }
-        
-        input:invalid {
-            border-color: #ff5555;
-        }
-        
-        input:valid {
-            border-color: #4CAF50;
-        }
-        
-        .global-error {
-            display: block !important;
-            padding: 10px;
-            background: #ffebee;
-            border-radius: 4px;
-            margin: 15px 0;
-            text-align: center;
-        }
+        color: #ff5555;
+        font-size: 12px;
+        margin-top: 4px;
+        display: none;
+    }
+    
+    input:invalid {
+        border-color: #ff5555;
+    }
+    
+    input:valid {
+        border-color: #4CAF50;
+    }
+    
+    .global-error {
+        display: block !important;
+        padding: 10px;
+        background: #ffebee;
+        border-radius: 4px;
+        margin: 15px 0;
+        text-align: center;
+    }
+
+    .journal-meta {
+        margin: 8px 0;
+        font-size: 16px;
+    }
+
+    #journal-quantity[style*="color:#4CAF50"]::before {
+        content: "✓ ";
+    }
+
+    #journal-quantity[style*="color:#ff5555"]::before {
+        content: "✗ ";
+    }
+
+    #journal-quantity[style*="color:#FFA500"]::before {
+        content: "? ";
+    }
   </style>
 </head>
 <body>
@@ -638,46 +655,42 @@
             
             const journalData = await response.json();
             
-            // Заполняем данные о журнале
+            // Заполняем данные
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
             document.getElementById('journal-price').textContent = `Цена: ${parseFloat(journalData.price || 0).toFixed(2)}₽`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             
-            // Устанавливаем базовую цену
-            basePrice = parseFloat(journalData.price) || 0;
-            
             // Обработка количества
-            const availableQuantity = parseInt(journalData.quantity) || 0;
             const quantityElement = document.getElementById('journal-quantity');
-            const increaseBtn = document.getElementById('quantity-increase');
-            const buyBtn = document.getElementById('buy-btn');
+            const availableQuantity = parseInt(journalData.quantity) || 0;
             
             if (availableQuantity > 0) {
                 quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
-                quantityElement.style.color = '#4CAF50'; // Зеленый для "в наличии"
-                increaseBtn.disabled = false;
-                buyBtn.disabled = false;
-            } else {
+                quantityElement.style.color = '#4CAF50';
+                window.maxAvailableQuantity = availableQuantity; // Сохраняем в глобальной переменной
+            } else if (availableQuantity === 0) {
                 quantityElement.textContent = 'Нет в наличии';
-                quantityElement.style.color = '#ff5555'; // Красный для "нет в наличии"
-                increaseBtn.disabled = true;
-                buyBtn.disabled = true;
+                quantityElement.style.color = '#ff5555';
+                window.maxAvailableQuantity = 0;
+            } else {
+                quantityElement.textContent = 'Доступность неизвестна';
+                quantityElement.style.color = '#FFA500';
+                window.maxAvailableQuantity = 0;
             }
             
-            // Обновляем цену
+            basePrice = parseFloat(journalData.price) || 0;
             updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            // Fallback на параметры URL если API недоступно
+            // Fallback на параметры URL
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-            document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
-            
-            // Устанавливаем значения по умолчанию при ошибке
+            document.getElementById('journal-price').textContent = `Цена: ${parseFloat(params.get('price') || 0).toFixed(2)}₽`;
             document.getElementById('journal-quantity').textContent = 'Доступность неизвестна';
-            document.getElementById('journal-quantity').style.color = '#FFA500'; // Оранжевый для неизвестного статуса
+            document.getElementById('journal-quantity').style.color = '#FFA500';
+            window.maxAvailableQuantity = 0;
         }
     }
 
@@ -992,6 +1005,7 @@
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     document.addEventListener('DOMContentLoaded', () => {
+        // Инициализация UI
         createStars();
         setLoading(true);
         setupFullNameHandling();
@@ -1000,46 +1014,47 @@
         Promise.all([
             loadJournalData(),
             loadAllImages()
-        ]).then(() => {
+        ])
+        .then(() => {
             updatePrice();
             setLoading(false);
             
-            // Обработчики количества
-            document.getElementById('quantity-decrease').addEventListener('click', () => {
-                if (quantity > 1) {
-                    quantity--;
-                    document.getElementById('quantity').textContent = quantity;
-                    updatePrice();
-                    
-                    // Активируем кнопку увеличения если была отключена
-                    document.getElementById('quantity-increase').disabled = false;
-                }
-            });
-
-            document.getElementById('quantity-increase').addEventListener('click', () => {
-                const availableText = document.getElementById('journal-quantity').textContent;
-                const availableMatch = availableText.match(/(\d+)/);
-                const maxQuantity = availableMatch ? parseInt(availableMatch[0]) : 1;
-                
-                if (quantity < maxQuantity) {
-                    quantity++;
-                    document.getElementById('quantity').textContent = quantity;
-                    updatePrice();
-                    
-                    // Дизейблим кнопку если достигли максимума
-                    document.getElementById('quantity-increase').disabled = quantity >= maxQuantity;
-                }
-            });
-            
-        }).catch((error) => {
-            console.error('Ошибка загрузки:', error);
+            // Инициализация обработчиков количества после загрузки данных
+            initQuantityControls();
+        })
+        .catch((error) => {
+            console.error('Initialization error:', error);
             setLoading(false);
-            
-            // Устанавливаем значения по умолчанию при ошибке
-            document.getElementById('journal-quantity').textContent = 'Доступность неизвестна';
-            document.getElementById('journal-quantity').style.color = '#FFA500';
+            showFallbackUI();
         });
 
+        // Инициализация остальных обработчиков
+        initEventHandlers();
+    });
+
+    function initQuantityControls() {
+        // Обработчик уменьшения количества
+        document.getElementById('quantity-decrease').addEventListener('click', () => {
+            if (quantity > 1) {
+                quantity--;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
+                document.getElementById('quantity-increase').disabled = false;
+            }
+        });
+
+        // Обработчик увеличения количества
+        document.getElementById('quantity-increase').addEventListener('click', () => {
+            if (quantity < window.maxAvailableQuantity) {
+                quantity++;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
+                document.getElementById('quantity-increase').disabled = quantity >= window.maxAvailableQuantity;
+            }
+        });
+    }
+
+    function initEventHandlers() {
         // Навигация
         document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
         document.getElementById('back-to-product').addEventListener('click', goToProductPage);
@@ -1057,7 +1072,18 @@
                 .show()
                 .onClick(goToOrderPage);
         }
-    });
+    }
+
+    function showFallbackUI() {
+        // Устанавливаем значения по умолчанию при ошибке
+        document.getElementById('journal-quantity').textContent = 'Доступность неизвестна';
+        document.getElementById('journal-quantity').style.color = '#FFA500';
+        window.maxAvailableQuantity = 0;
+        
+        // Блокируем кнопки
+        document.getElementById('quantity-increase').disabled = true;
+        document.getElementById('buy-btn').disabled = true;
+    }
 </script>
 </body>
 </html>
