@@ -635,71 +635,65 @@
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
+            // Обновляем отображение количества сразу из параметров URL
+            const quantityElement = document.getElementById('journal-quantity');
+            if (availableQuantity > 0) {
+                quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+                quantityElement.style.color = '';
+            } else {
+                quantityElement.textContent = "Нет в наличии";
+                quantityElement.style.color = '#ff5555';
+            }
+
+            // Дополнительная проверка через API
             const response = await fetch(`http://localhost:5007/get_journal?id=${journalId}`);
             if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
-            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
-            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
-            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
-            basePrice = parseFloat(journalData.price) || 0;
+            // Обновляем данные, если они изменились
+            availableQuantity = parseInt(journalData.quantity) || availableQuantity;
             
-            // Обновляем доступное количество
-            availableQuantity = parseInt(journalData.quantity) || 0;
-            const quantityElement = document.getElementById('journal-quantity');
+            // Обновляем отображение
+            document.getElementById('journal-title').textContent = journalData.title || params.get('title') || "Журнал";
+            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || params.get('year') || "—"}`;
+            document.getElementById('journal-description').textContent = journalData.description || params.get('description') || "Описание отсутствует";
+            basePrice = parseFloat(journalData.price) || basePrice;
             
-            if (availableQuantity > 0) {
-                quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
-                quantityElement.style.color = ''; // Сброс цвета
-            } else {
-                quantityElement.textContent = "Нет в наличии";
-                quantityElement.style.color = '#ff5555'; // Красный цвет при отсутствии
-            }
-            
-            // Блокируем кнопки если товара нет
-            const buyBtn = document.getElementById('buy-btn');
-            if (availableQuantity <= 0) {
-                buyBtn.disabled = true;
-                buyBtn.style.opacity = '0.5';
-                buyBtn.style.cursor = 'not-allowed';
-            } else {
-                buyBtn.disabled = false;
-                buyBtn.style.opacity = '1';
-                buyBtn.style.cursor = 'pointer';
-            }
-            
+            updateQuantityDisplay();
             updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
+            // Используем переданные параметры как fallback
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
             
             const quantityElement = document.getElementById('journal-quantity');
-            quantityElement.textContent = "Информация о наличии недоступна";
-            quantityElement.style.color = '#ffaa00'; // Оранжевый цвет при ошибке
+            quantityElement.textContent = availableQuantity > 0 
+                ? `В наличии: ${availableQuantity} шт.` 
+                : "Нет в наличии";
         }
     }
 
-    // ==================== ОБРАБОТЧИКИ КОЛИЧЕСТВА ====================
-    document.getElementById('quantity-decrease').addEventListener('click', () => {
-        if (quantity > 1) {
-            quantity--;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-        }
-    });
-
-    document.getElementById('quantity-increase').addEventListener('click', () => {
-        if (quantity < availableQuantity) {
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
+    function updateQuantityDisplay() {
+        const quantityElement = document.getElementById('journal-quantity');
+        const buyBtn = document.getElementById('buy-btn');
+        
+        if (availableQuantity > 0) {
+            quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+            quantityElement.style.color = '';
+            buyBtn.disabled = false;
+            buyBtn.style.opacity = '1';
+            buyBtn.style.cursor = 'pointer';
         } else {
-            alert(`Достигнуто максимальное доступное количество: ${availableQuantity} шт.`);
+            quantityElement.textContent = "Нет в наличии";
+            quantityElement.style.color = '#ff5555';
+            buyBtn.disabled = true;
+            buyBtn.style.opacity = '0.5';
+            buyBtn.style.cursor = 'not-allowed';
         }
-    });
+    }
 
     function updatePrice() {
         const totalPrice = basePrice * quantity;
@@ -862,17 +856,6 @@
 
     async function processOrder(e) {
         if (e) e.preventDefault();
-
-        // Дополнительная проверка перед отправкой
-        if (availableQuantity <= 0) {
-            alert('Товара нет в наличии');
-            return;
-        }
-        
-        if (quantity > availableQuantity) {
-            alert(`Недостаточно товара! В наличии: ${availableQuantity} шт.`);
-            return;
-        }
         
         if (!validateForm()) {
             const firstError = document.querySelector('.invalid');
