@@ -391,7 +391,7 @@
         <div class="gallery-nav gallery-next" id="gallery-next">
           <svg viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6"/></svg>
         </div>
-        <div class="gallery-images-wrapper" id="gallery-wrapper">
+        <div class="gallery-images-wrapper" id="gallery-wrapper"> 
           <div id="gallery-images"></div>
           <div id="no-image" class="no-image">
             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ccc">
@@ -411,6 +411,8 @@
         
         <!-- Добавленный блок описания -->
         <div class="journal-description" id="journal-description"></div>
+
+        <div id="journal-quantity" class="journal-meta"></div>
         
         <div class="quantity-control">
           <button class="quantity-btn" id="quantity-decrease">-</button>
@@ -640,6 +642,12 @@
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             basePrice = parseFloat(journalData.price) || 0;
+            
+            // Set available quantity
+            availableQuantity = parseInt(journalData.quantity) || 0;
+            maxQuantity = availableQuantity;
+            document.getElementById('journal-quantity').textContent = `В наличии: ${availableQuantity} шт.`;
+            
             updatePrice();
             
         } catch (error) {
@@ -647,8 +655,28 @@
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
+            document.getElementById('journal-quantity').textContent = "Информация о наличии недоступна";
         }
     }
+
+    // Update quantity handlers
+    document.getElementById('quantity-decrease').addEventListener('click', () => {
+        if (quantity > 1) {
+            quantity--;
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        }
+    });
+
+    document.getElementById('quantity-increase').addEventListener('click', () => {
+        if (quantity < maxQuantity) {
+            quantity++;
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        } else {
+            alert(`Максимальное количество: ${maxQuantity}`);
+        }
+    });
 
     function updatePrice() {
         const totalPrice = basePrice * quantity;
@@ -893,6 +921,15 @@
                 Telegram.WebApp.MainButton.showProgress();
             }
             
+            // First verify stock availability
+            const stockCheck = await fetch(`https://your-backend-api.com/check_stock?journal_id=${journalId}&quantity=${quantity}`);
+            if (!stockCheck.ok) throw new Error("Ошибка проверки наличия");
+            
+            const stockResult = await stockCheck.json();
+            if (!stockResult.available) {
+                throw new Error(stockResult.error || "Товара нет в нужном количестве");
+            }
+
             const formData = {
                 amount: basePrice * quantity,
                 journal_id: journalId,
@@ -930,6 +967,11 @@
             errorContainer.textContent = error.message;
             form.appendChild(errorContainer);
             setTimeout(() => errorContainer.remove(), 5000);
+            
+            // Update available quantity if error is about stock
+            if (error.message.includes("Товара нет") || error.message.includes("количестве")) {
+                await loadJournalData(); // Reload quantity info
+            }
         } finally {
             setTimeout(() => {
                 submitBtn.disabled = false;
