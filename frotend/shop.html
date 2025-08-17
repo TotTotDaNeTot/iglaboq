@@ -632,9 +632,10 @@
     }
 
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
+    // В функции loadJournalData обновите блок try-catch:
     async function loadJournalData() {
         try {
-            const response = await fetch(`https://your-backend-api.com/get_journal?id=${journalId}`);
+            const response = await fetch(`http://localhost:5001/get_journal?id=${journalId}`);
             if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
@@ -643,10 +644,17 @@
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             basePrice = parseFloat(journalData.price) || 0;
             
-            // Set available quantity
+            // Добавьте это:
             availableQuantity = parseInt(journalData.quantity) || 0;
-            maxQuantity = availableQuantity;
-            document.getElementById('journal-quantity').textContent = `В наличии: ${availableQuantity} шт.`;
+            document.getElementById('journal-quantity').textContent = availableQuantity > 0 
+                ? `В наличии: ${availableQuantity} шт.` 
+                : "Нет в наличии";
+                
+            // Если товара нет, делаем кнопку неактивной
+            if (availableQuantity <= 0) {
+                document.getElementById('buy-btn').disabled = true;
+                document.getElementById('buy-btn').style.opacity = '0.5';
+            }
             
             updatePrice();
             
@@ -659,7 +667,7 @@
         }
     }
 
-    // Update quantity handlers
+    // Обновите обработчики счетчика:
     document.getElementById('quantity-decrease').addEventListener('click', () => {
         if (quantity > 1) {
             quantity--;
@@ -669,12 +677,12 @@
     });
 
     document.getElementById('quantity-increase').addEventListener('click', () => {
-        if (quantity < maxQuantity) {
+        if (quantity < availableQuantity) {  // Ограничение по доступному количеству
             quantity++;
             document.getElementById('quantity').textContent = quantity;
             updatePrice();
         } else {
-            alert(`Максимальное количество: ${maxQuantity}`);
+            alert(`Максимальное количество: ${availableQuantity}`);
         }
     });
 
