@@ -490,6 +490,7 @@
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
+    let availableQuantity = parseInt(params.get('quantity')) || 0;
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
@@ -664,39 +665,9 @@
         }
     }
 
-    document.getElementById('quantity-decrease').addEventListener('click', () => {
-        if (quantity > 1) {
-            quantity--;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-        }
-    });
-
-    document.getElementById('quantity-increase').addEventListener('click', () => {
-        if (quantity < availableQuantity) {  // Ограничение по доступному количеству
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-        } else {
-            alert(`Максимальное количество: ${availableQuantity}`);
-        }
-    });
-
     function updatePrice() {
         const totalPrice = basePrice * quantity;
         document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
-    }
-
-    // ==================== ПРОВЕРКА НАЛИЧИЯ ====================
-    async function checkStock() {
-        try {
-            const response = await fetch(`http://localhost:5007/check_stock?journal_id=${journalId}&quantity=${quantity}`);
-            if (!response.ok) throw new Error("Ошибка проверки наличия");
-            return await response.json();
-        } catch (e) {
-            console.error('Ошибка проверки наличия:', e);
-            return { available: false, error: e.message };
-        }
     }
 
     // ==================== СТРАНИЦЫ ====================
@@ -725,24 +696,17 @@
         const fullnameInput = document.getElementById('fullname');
         const errorElement = document.getElementById('fullname-error');
         
-        // Очищаем поле при первом клике, если оно пустое
         fullnameInput.addEventListener('focus', function() {
-            if (this.value === '') {
-                this.value = '';
-            }
+            if (this.value === '') this.value = '';
         });
 
-        // Обработчик нажатия клавиш
         fullnameInput.addEventListener('keydown', function(e) {
             const cursorPos = this.selectionStart;
             const currentValue = this.value;
             const parts = currentValue.split('|').map(part => part.trim());
             
-            // Разрешаем Backspace и Delete
             if (e.key === 'Backspace' || e.key === 'Delete') {
-                // Если пытаемся удалить разделитель " | ", удаляем сразу 3 символа
-                if (e.key === 'Backspace' && cursorPos > 2 && 
-                    currentValue.substr(cursorPos-3, 3) === ' | ') {
+                if (e.key === 'Backspace' && cursorPos > 2 && currentValue.substr(cursorPos-3, 3) === ' | ') {
                     this.value = currentValue.substring(0, cursorPos-3) + currentValue.substring(cursorPos);
                     this.setSelectionRange(cursorPos-3, cursorPos-3);
                     e.preventDefault();
@@ -750,55 +714,33 @@
                 return;
             }
             
-            // Запрещаем пробел, если уже есть 3 части
-            if (parts.length >= 3 && e.key === ' ') {
-                e.preventDefault();
-                return;
-            }
+            if (parts.length >= 3 && e.key === ' ') e.preventDefault();
             
-            // Автоматически добавляем разделитель при пробеле
             if (e.key === ' ' && parts.length < 3) {
-                const currentParts = currentValue.split('|');
-                if (currentParts.length < 3) {
-                    setTimeout(() => {
-                        this.value = this.value + ' | ';
-                        this.setSelectionRange(this.value.length, this.value.length);
-                    }, 0);
-                }
+                setTimeout(() => {
+                    this.value = this.value + ' | ';
+                    this.setSelectionRange(this.value.length, this.value.length);
+                }, 0);
                 e.preventDefault();
             }
         });
         
-        // Обработчик ввода
         fullnameInput.addEventListener('input', function(e) {
-            // Запрещаем прямой ввод символа "|"
             if (e.data === '|') {
                 this.value = this.value.replace(/\|/g, '');
                 return;
             }
             
-            // Автоматическая капитализация каждой части
             const parts = this.value.split('|').map(part => {
                 const trimmed = part.trim();
-                if (trimmed.length === 0) return '';
                 return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
             });
             
-            // Собираем обратно с разделителями
             this.value = parts.join(' | ');
-            
-            // Удаляем лишние разделители, если частей больше 3
-            if (parts.length > 3) {
-                this.value = parts.slice(0, 3).join(' | ');
-            }
+            if (parts.length > 3) this.value = parts.slice(0, 3).join(' | ');
         });
         
-        // Валидация при потере фокуса
-        fullnameInput.addEventListener('blur', function() {
-            validateFullName();
-        });
-        
-        // Валидация перед отправкой формы
+        fullnameInput.addEventListener('blur', validateFullName);
         document.getElementById('order-form').addEventListener('submit', function(e) {
             if (!validateFullName()) {
                 e.preventDefault();
@@ -837,40 +779,6 @@
             
             return true;
         }
-    }
-
-
-    function validateFullName() {
-        const fullnameInput = document.getElementById('fullname');
-        const errorElement = document.getElementById('fullname-error');
-        const value = fullnameInput.value.trim();
-        
-        if (!value) {
-            errorElement.textContent = 'Поле ФИО обязательно для заполнения';
-            errorElement.style.display = 'block';
-            fullnameInput.classList.add('invalid');
-            return false;
-        }
-        
-        const parts = value.split('|').map(part => part.trim());
-        if (parts.length !== 3 || parts.some(part => !part)) {
-            errorElement.textContent = 'Введите ФИО полностью: Фамилия Имя Отчество';
-            errorElement.style.display = 'block';
-            fullnameInput.classList.add('invalid');
-            return false;
-        }
-        
-        const nameRegex = /^[A-ZА-ЯЁ][a-zа-яё]*(-[A-ZА-ЯЁ][a-zа-яё]*)?$/;
-        if (!parts.every(part => nameRegex.test(part))) {
-            errorElement.textContent = 'Каждая часть должна начинаться с заглавной буквы';
-            errorElement.style.display = 'block';
-            fullnameInput.classList.add('invalid');
-            return false;
-        }
-        
-        errorElement.style.display = 'none';
-        fullnameInput.classList.remove('invalid');
-        return true;
     }
 
     // ==================== ФОРМА ЗАКАЗА ====================
@@ -916,7 +824,6 @@
         return isValid;
     }
 
-    // ==================== ОФОРМЛЕНИЕ ЗАКАЗА ====================
     async function processOrder(e) {
         if (e) e.preventDefault();
         
@@ -938,13 +845,12 @@
                 Telegram.WebApp.MainButton.showProgress();
             }
             
-            // 1. Проверяем наличие
-            const stock = await checkStock();
-            if (!stock.available) {
-                throw new Error(stock.error || "Товара нет в нужном количестве");
-            }
+            // Проверка наличия перед оформлением
+            const stockCheck = await fetch(`http://localhost:5007/check_stock?journal_id=${journalId}&quantity=${quantity}`);
+            if (!stockCheck.ok) throw new Error("Ошибка проверки наличия");
+            const stockResult = await stockCheck.json();
+            if (!stockResult.available) throw new Error(stockResult.error || "Товара нет в нужном количестве");
 
-            // 2. Создаем заказ
             const orderData = {
                 amount: basePrice * quantity,
                 journal_id: journalId,
@@ -965,11 +871,9 @@
             });
             
             if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
-            
             const result = await response.json();
             if (!result.success) throw new Error(result.error || "Ошибка при создании заказа");
 
-            // 3. Перенаправляем на оплату
             if (window.Telegram?.WebApp?.openLink) {
                 Telegram.WebApp.openLink(result.payment_url);
             } else {
@@ -1042,9 +946,13 @@
         });
         
         document.getElementById('quantity-increase').addEventListener('click', () => {
-            quantity++;
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
+            if (quantity < availableQuantity) {
+                quantity++;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
+            } else {
+                alert(`Максимальное количество: ${availableQuantity}`);
+            }
         });
         
         // Навигация
