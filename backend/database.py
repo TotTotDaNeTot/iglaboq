@@ -1,7 +1,26 @@
 import aiomysql
 from typing import Optional, List, Dict, Any
 import logging
+import os
+import asyncio
 
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.filters import Command
+from aiogram.client.default import DefaultBotProperties
+
+from dotenv import load_dotenv
+load_dotenv()
+
+
+# BOT_TOKEN = os.getenv('BOT_TOKEN')
+# if not BOT_TOKEN:
+#     raise ValueError("Не указан BOT_TOKEN в переменных окружения")
+
+# bot = Bot(
+#     token=BOT_TOKEN,
+#     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+# )
 
 
 
@@ -81,16 +100,131 @@ class Database:
             ORDER BY year DESC
         """)
         
+        
 
     async def get_journal_by_id(self, journal_id: int) -> Optional[Dict[str, Any]]:
         """Получает конкретный журнал по ID"""
         return await self.fetch_one("""
-            SELECT id, title, description, price, year, photo_path, photo_url
+            SELECT id, title, description, price, year, photo_path, photo_url, quantity
             FROM journals 
             WHERE id = %s
         """, (journal_id,))
         
+    
+    
+    async def update_order_status(self, order_id: str, status: str, payment_id: str = None):
+        """Обновляет статус заказа"""
+        query = """
+            UPDATE orders 
+            SET status = %s, 
+                payment_id = COALESCE(%s, payment_id)
+            WHERE order_id = %s
+        """
+        await self.execute(query, (status, payment_id, order_id))
+
+
+
+    async def get_order_by_id(self, order_id: str) -> dict:
+        """Получает заказ по ID"""
+        return await self.fetch_one("""
+            SELECT * FROM orders 
+            WHERE order_id = %s
+        """, (order_id,))
         
+        
+        
+    ######### PAYMENTS ##########    
+        
+    async def create_payment(self, payment_id: str, user_id: int, amount: float, status: str = 'pending') -> bool:
+        """Создает запись о платеже в БД"""
+        try:
+            await self.execute(
+                """
+                INSERT INTO payments (payment_id, user_id, amount, status)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (payment_id, user_id, amount, status)
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error creating payment: {e}")
+            return False
+
+    async def update_payment_status(self, payment_id: str, status: str) -> bool:
+        """Обновляет статус платежа"""
+        try:
+            await self.execute(
+                "UPDATE payments SET status = %s WHERE payment_id = %s",
+                (status, payment_id)
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error updating payment status: {e}")
+            return False
+
+    async def get_payment(self, payment_id: str) -> Optional[Dict[str, Any]]:
+        """Получает информацию о платеже"""
+        try:
+            return await self.fetch_one(
+                "SELECT * FROM payments WHERE payment_id = %s",
+                (payment_id,)
+            )
+        except Exception as e:
+            self.logger.error(f"Error getting payment: {e}")
+            return None
+
+    async def get_user_payments(self, user_id: int) -> List[Dict[str, Any]]:
+        """Получает все платежи пользователя"""
+        try:
+            return await self.fetch_all(
+                "SELECT * FROM payments WHERE user_id = %s ORDER BY created_at DESC",
+                (user_id,)
+            )
+        except Exception as e:
+            self.logger.error(f"Error getting user payments: {e}")
+            return []
+        
+        
+        
+    ##### ADMIN #######
+
+    async def create_admin(self, username: str, password_hash: str, is_staff: bool = False) -> bool:
+        """Создает администратора"""
+        try:
+            await self.execute(
+                "INSERT INTO admins (username, password_hash, is_staff) VALUES (%s, %s, %s)",
+                (username, password_hash, is_staff)
+            )
+            return True
+        except Exception as e:
+            self.logger.error(f"Error creating admin: {e}")
+            return False
+
+
+    async def get_admin_by_username(self, username: str) -> Optional[Dict[str, Any]]:
+        """Получает администратора по username"""
+        try:
+            return await self.fetch_one(
+                "SELECT * FROM admins WHERE username = %s",
+                (username,)
+            )
+        except Exception as e:
+            self.logger.error(f"Error getting admin: {e}")
+            return None
+
+
+    async def verify_admin(self, username: str, password: str) -> bool:
+        """Проверяет логин/пароль администратора"""
+        from werkzeug.security import check_password_hash
+        
+        admin = await self.get_admin_by_username(username)
+        if not admin:
+            return False
+        
+        return check_password_hash(admin['password_hash'], password)
+    
+    
+    
 
     async def execute(self, query: str, args=None):
         if not self.pool:
@@ -112,6 +246,15 @@ class Database:
             async with conn.cursor(aiomysql.DictCursor) as cur:
                 await cur.execute(query, args or ())
                 return await cur.fetchone()
+    
+    def sync_fetch_one(self, query: str, args=None):
+        """Синхронная версия fetch_one"""
+        
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.fetch_one(query, args))
+        finally:
+            loop.close()
 
     async def close(self):
         if self.pool:
