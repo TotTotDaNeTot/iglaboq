@@ -644,14 +644,28 @@
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             basePrice = parseFloat(journalData.price) || 0;
             
+            // Обновляем доступное количество
             availableQuantity = parseInt(journalData.quantity) || 0;
-            document.getElementById('journal-quantity').textContent = availableQuantity > 0 
-                ? `В наличии: ${availableQuantity} шт.` 
-                : "Нет в наличии";
-                
+            const quantityElement = document.getElementById('journal-quantity');
+            
+            if (availableQuantity > 0) {
+                quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+                quantityElement.style.color = ''; // Сброс цвета
+            } else {
+                quantityElement.textContent = "Нет в наличии";
+                quantityElement.style.color = '#ff5555'; // Красный цвет при отсутствии
+            }
+            
+            // Блокируем кнопки если товара нет
+            const buyBtn = document.getElementById('buy-btn');
             if (availableQuantity <= 0) {
-                document.getElementById('buy-btn').disabled = true;
-                document.getElementById('buy-btn').style.opacity = '0.5';
+                buyBtn.disabled = true;
+                buyBtn.style.opacity = '0.5';
+                buyBtn.style.cursor = 'not-allowed';
+            } else {
+                buyBtn.disabled = false;
+                buyBtn.style.opacity = '1';
+                buyBtn.style.cursor = 'pointer';
             }
             
             updatePrice();
@@ -661,9 +675,31 @@
             document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
             document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
             document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
-            document.getElementById('journal-quantity').textContent = "Информация о наличии недоступна";
+            
+            const quantityElement = document.getElementById('journal-quantity');
+            quantityElement.textContent = "Информация о наличии недоступна";
+            quantityElement.style.color = '#ffaa00'; // Оранжевый цвет при ошибке
         }
     }
+
+    // ==================== ОБРАБОТЧИКИ КОЛИЧЕСТВА ====================
+    document.getElementById('quantity-decrease').addEventListener('click', () => {
+        if (quantity > 1) {
+            quantity--;
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        }
+    });
+
+    document.getElementById('quantity-increase').addEventListener('click', () => {
+        if (quantity < availableQuantity) {
+            quantity++;
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        } else {
+            alert(`Достигнуто максимальное доступное количество: ${availableQuantity} шт.`);
+        }
+    });
 
     function updatePrice() {
         const totalPrice = basePrice * quantity;
@@ -826,6 +862,17 @@
 
     async function processOrder(e) {
         if (e) e.preventDefault();
+
+        // Дополнительная проверка перед отправкой
+        if (availableQuantity <= 0) {
+            alert('Товара нет в наличии');
+            return;
+        }
+        
+        if (quantity > availableQuantity) {
+            alert(`Недостаточно товара! В наличии: ${availableQuantity} шт.`);
+            return;
+        }
         
         if (!validateForm()) {
             const firstError = document.querySelector('.invalid');
