@@ -650,6 +650,7 @@
             document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
             document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             
+            // Обновляем количество и цену
             updateQuantityDisplay();
             updatePrice();
             
@@ -657,8 +658,20 @@
             console.error('Ошибка загрузки данных:', error);
             // Только в случае ошибки API используем параметры URL
             availableQuantity = parseInt(params.get('quantity')) || 0;
+            basePrice = parseFloat(params.get('price')) || 0;
+            
+            document.getElementById('journal-title').textContent = decodeURIComponent(params.get('title') || "Журнал");
+            document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+            document.getElementById('journal-description').textContent = decodeURIComponent(params.get('description')) || "Описание отсутствует";
+            
             updateQuantityDisplay();
+            updatePrice();
         }
+    }
+
+    function updatePrice() {
+        const totalPrice = basePrice * quantity;
+        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
     }
 
     function updateQuantityDisplay() {
@@ -685,19 +698,6 @@
             updatePrice();
         }
         quantityIncreaseBtn.disabled = quantity >= availableQuantity;
-    }
-
-    // Добавляем принудительное обновление при взаимодействии
-    document.getElementById('buy-btn').addEventListener('click', async function() {
-        await loadJournalData(); // Обновляем данные перед покупкой
-        if (availableQuantity > 0) {
-            goToOrderPage();
-        }
-    });
-
-    function updatePrice() {
-        const totalPrice = basePrice * quantity;
-        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
     }
 
     // ==================== СТРАНИЦЫ ====================
