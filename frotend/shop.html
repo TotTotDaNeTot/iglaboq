@@ -491,6 +491,21 @@
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
     let availableQuantity = parseInt(params.get('quantity')) || 0;
+    // Добавьте в самое начало скрипта
+    let isPageRefreshed = false;
+
+    // При загрузке страницы всегда обновляем данные
+    window.addEventListener('load', function() {
+        if (!isPageRefreshed) {
+            loadJournalData();
+            isPageRefreshed = true;
+        }
+    });
+
+    // При явном обновлении страницы (F5/Ctrl+R)
+    window.addEventListener('beforeunload', function() {
+        isPageRefreshed = false;
+    });
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
@@ -637,59 +652,29 @@
         try {
             setLoading(true);
             
-            // Загружаем данные из API с принудительным обновлением кэша
-            const apiUrl = `http://localhost:5007/get_journal?id=${journalId}&force_refresh=${Date.now()}`;
-            const response = await fetch(apiUrl);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            // ВАЖНО: игнорируем quantity из URL, всегда грузим из API
+            const response = await fetch(`http://localhost:5007/get_journal?id=${journalId}&nocache=${Date.now()}`);
+            if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
             
-            // Обновляем все данные
+            // ВСЕГДА используем данные из API, игнорируем URL параметры
             availableQuantity = parseInt(journalData.quantity) || 0;
             basePrice = parseFloat(journalData.price) || 0;
             
-            // Журнал
+            // Обновляем отображение
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
+            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
+            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             
-            // Год выпуска (убедитесь, что элемент существует в HTML)
-            const yearElement = document.getElementById('journal-year');
-            if (yearElement) {
-                yearElement.textContent = `Год выпуска: ${journalData.year || "—"}`;
-            }
-            
-            // Описание (убедитесь, что элемент существует в HTML)
-            const descElement = document.getElementById('journal-description');
-            if (descElement) {
-                descElement.textContent = journalData.description || "Описание отсутствует";
-            }
-            
-            // Цена и количество
-            updatePrice();
             updateQuantityDisplay();
+            updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            
-            // Fallback на параметры URL
-            availableQuantity = parseInt(params.get('quantity')) || 0;
-            basePrice = parseFloat(params.get('price')) || 0;
-            
-            document.getElementById('journal-title').textContent = params.get('title') || "Журнал";
-            
-            if (document.getElementById('journal-year')) {
-                document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
-            }
-            
-            if (document.getElementById('journal-description')) {
-                document.getElementById('journal-description').textContent = params.get('description') || "Описание отсутствует";
-            }
-            
-            updatePrice();
+            // Только в случае ошибки показываем "Нет в наличии"
+            availableQuantity = 0;
             updateQuantityDisplay();
-            
         } finally {
             setLoading(false);
         }
