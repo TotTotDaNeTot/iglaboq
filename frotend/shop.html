@@ -632,90 +632,67 @@
         preloader.style.display = loading ? 'flex' : 'none';
     }
 
-    // ==================== ДАННЫЕ ЖУРНАЛА ===================
-    async function loadJournalData(force = false) {
+    // ==================== ДАННЫЕ ЖУРНАЛА ====================
+    async function loadJournalData() {
         try {
             setLoading(true);
             
-            // URL с принудительным обновлением кэша
-            const timestamp = force ? Date.now() : 'cache';
-            const apiUrl = `http://localhost:5007/get_journal?id=${journalId}&_=${timestamp}`;
+            // Загружаем данные из API с принудительным обновлением кэша
+            const apiUrl = `http://localhost:5007/get_journal?id=${journalId}&force_refresh=${Date.now()}`;
+            const response = await fetch(apiUrl);
             
-            console.log('Loading journal data from:', apiUrl);
-            
-            const response = await fetch(apiUrl, {
-                headers: {
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                }
-            });
-            
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
             
             const journalData = await response.json();
-            console.log('Journal data received:', journalData);
             
-            // ОБНОВЛЯЕМ ВСЕ ДАННЫЕ
+            // Обновляем все данные
             availableQuantity = parseInt(journalData.quantity) || 0;
             basePrice = parseFloat(journalData.price) || 0;
             
-            // Обновляем интерфейс
+            // Журнал
             document.getElementById('journal-title').textContent = journalData.title || "Журнал";
-            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
-            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
             
+            // Год выпуска (убедитесь, что элемент существует в HTML)
+            const yearElement = document.getElementById('journal-year');
+            if (yearElement) {
+                yearElement.textContent = `Год выпуска: ${journalData.year || "—"}`;
+            }
+            
+            // Описание (убедитесь, что элемент существует в HTML)
+            const descElement = document.getElementById('journal-description');
+            if (descElement) {
+                descElement.textContent = journalData.description || "Описание отсутствует";
+            }
+            
+            // Цена и количество
             updatePrice();
             updateQuantityDisplay();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            // Fallback не используем - лучше показать ошибку
-            showError('Ошибка загрузки данных журнала');
+            
+            // Fallback на параметры URL
+            availableQuantity = parseInt(params.get('quantity')) || 0;
+            basePrice = parseFloat(params.get('price')) || 0;
+            
+            document.getElementById('journal-title').textContent = params.get('title') || "Журнал";
+            
+            if (document.getElementById('journal-year')) {
+                document.getElementById('journal-year').textContent = `Год выпуска: ${params.get('year') || "—"}`;
+            }
+            
+            if (document.getElementById('journal-description')) {
+                document.getElementById('journal-description').textContent = params.get('description') || "Описание отсутствует";
+            }
+            
+            updatePrice();
+            updateQuantityDisplay();
+            
         } finally {
             setLoading(false);
         }
-    }
-
-    // Функция принудительного обновления
-    function forceRefreshJournalData() {
-        console.log('Force refreshing journal data...');
-        loadJournalData(true);
-    }
-
-    // Обновляем при любом взаимодействии
-    document.getElementById('buy-btn').addEventListener('click', function() {
-        forceRefreshJournalData();
-        setTimeout(() => {
-            if (availableQuantity > 0) {
-                goToOrderPage();
-            } else {
-                alert('Журнал закончился!');
-            }
-        }, 500);
-    });
-
-    // Обновляем при фокусе на странице
-    document.addEventListener('visibilitychange', function() {
-        if (!document.hidden) {
-            forceRefreshJournalData();
-        }
-    });
-
-    // Обновляем каждые 30 секунд
-    setInterval(forceRefreshJournalData, 30000);
-
-    // Показ ошибки
-    function showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        errorDiv.style.cssText = 'background: #ff4444; color: white; padding: 10px; margin: 10px 0; border-radius: 5px;';
-        
-        const container = document.querySelector('.journal-info');
-        const firstChild = container.firstChild;
-        container.insertBefore(errorDiv, firstChild);
-        
-        setTimeout(() => errorDiv.remove(), 5000);
     }
 
     function updatePrice() {
