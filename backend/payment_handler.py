@@ -250,73 +250,81 @@ def create_payment():
     conn = None
     cursor = None
     try:
-        data = request.json
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+
         required_fields = ['user_id', 'amount', 'journal_id', 'quantity']
         for field in required_fields:
             if field not in data:
-                return jsonify({"success": False, "error": f"Missing {field}"}), 400
+                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
 
         user_id = data['user_id']
         journal_id = data['journal_id']
         quantity = int(data['quantity'])
+        amount = float(data['amount'])
         
         if quantity <= 0:
             return jsonify({"success": False, "error": "Quantity must be positive"}), 400
 
-        # Start transaction with isolation level
+        # Подключение к базе данных
         conn = db_pool.get_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
         
-        # Set isolation level to SERIALIZABLE for maximum consistency
-        cursor.execute("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-        conn.commit()  # Commit the isolation level change
-        
-        # Begin transaction
+        # Начинаем транзакцию
         cursor.execute("START TRANSACTION")
         
-        # Lock the row for update
-        cursor.execute("SELECT quantity FROM journals WHERE id = %s FOR UPDATE", (journal_id,))
-        result = cursor.fetchone()
+        # 1. Проверяем наличие товара с блокировкой строки
+        cursor.execute("SELECT quantity, price FROM journals WHERE id = %s FOR UPDATE", (journal_id,))
+        journal = cursor.fetchone()
         
-        if not result:
+        if not journal:
             conn.rollback()
             return jsonify({"success": False, "error": "Journal not found"}), 404
             
-        available_quantity = result[0]
+        available_quantity = journal['quantity']
         
         if available_quantity < quantity:
             conn.rollback()
             return jsonify({
                 "success": False,
-                "error": f"Not enough items in stock (available: {available_quantity})"
+                "error": f"Not enough items in stock. Available: {available_quantity}, requested: {quantity}"
             }), 400
         
-        # Create payment
+        # 2. Создаем платеж в платежной системе
         payment = Payment.create({
-            "amount": {"value": f"{float(data['amount']):.2f}", "currency": "RUB"},
-            "confirmation": {"type": "redirect", "return_url": "https://t.me/CocoCamBot"},
+            "amount": {
+                "value": f"{amount:.2f}",
+                "currency": "RUB"
+            },
+            "confirmation": {
+                "type": "redirect",
+                "return_url": "https://t.me/CocoCamBot"
+            },
             "metadata": {
                 "user_id": user_id,
                 "journal_id": journal_id,
                 "quantity": quantity,
-                **{k: data.get(k, '') for k in ['fullname', 'city', 'postcode', 'phone', 'email']}
-            }
+                **{k: data.get(k, '') for k in ['fullname', 'city', 'postcode', 'phone', 'email', 'chat_id']}
+            },
+            "description": f"Оплата журнала ID {journal_id}"
         })
         
-        # Update quantity
+        # 3. Обновляем количество товара
         cursor.execute(
             "UPDATE journals SET quantity = quantity - %s WHERE id = %s",
             (quantity, journal_id)
         )
         
-        # Save payment
+        # 4. Сохраняем информацию о платеже (используем существующую структуру таблицы)
         cursor.execute(
             """INSERT INTO payments 
-            (payment_id, user_id, journal_id, amount, quantity, status) 
-            VALUES (%s, %s, %s, %s, %s, 'pending')""",
-            (payment.id, user_id, journal_id, data['amount'], quantity)
+            (payment_id, user_id, journal_id, amount, status) 
+            VALUES (%s, %s, %s, %s, 'pending')""",
+            (payment.id, user_id, journal_id, amount)
         )
         
+        # Фиксируем транзакцию
         conn.commit()
         
         return jsonify({
@@ -328,8 +336,9 @@ def create_payment():
     except Exception as e:
         if conn:
             conn.rollback()
-        logger.error(f"Payment error: {str(e)}")
+        logger.error(f"Payment processing error: {str(e)}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
+        
     finally:
         if cursor:
             cursor.close()
@@ -340,14 +349,24 @@ def create_payment():
 
 @app.route('/payment_webhook', methods=['POST'])
 def payment_webhook():
+    logger.info("Webhook received. Headers: %s", request.headers)
+    logger.info("Raw body: %s", request.data.decode('utf-8') if request.data else 'Empty body')
+    
     conn = None
     cursor = None
+    
     try:
         event_json = request.json
         payment = event_json['object']
         payment_id = payment['id']
         status = payment['status']
+        metadata = payment.get('metadata', {})
         
+        # Проверяем наличие обязательных данных
+        if not all(key in metadata for key in ['chat_id', 'journal_id', 'quantity']):
+            logger.error("Missing required metadata fields")
+            return jsonify({"error": "Missing metadata"}), 400
+
         conn = db_pool.get_connection()
         cursor = conn.cursor(dictionary=True)
         
@@ -367,7 +386,6 @@ def payment_webhook():
             
         if status == 'succeeded':
             # Complete the transaction - save order
-            metadata = payment.get('metadata', {})
             cursor.execute(
                 """INSERT INTO orders (
                     tg_user_id, fullname, city, postcode, 
@@ -395,17 +413,22 @@ def payment_webhook():
                 (payment_id,)
             )
             
+            # Обновляем количество журналов
+            cursor.execute(
+                "UPDATE journals SET quantity = quantity - %s WHERE id = %s",
+                (payment_data['quantity'], payment_data['journal_id'])
+            )
+            
             # Send notification
-            if metadata.get('chat_id'):
-                send_telegram_notification(
-                    chat_id=metadata['chat_id'],
-                    payment_id=payment_id,
-                    amount=payment_data['amount'],
-                    product_id=payment_data['journal_id'],
-                    customer_name=metadata.get('fullname'),
-                    delivery_city=metadata.get('city'),
-                    delivery_postcode=metadata.get('postcode')
-                )
+            send_telegram_notification(
+                chat_id=metadata['chat_id'],
+                payment_id=payment_id,
+                amount=payment_data['amount'],
+                product_id=payment_data['journal_id'],
+                customer_name=metadata.get('fullname'),
+                delivery_city=metadata.get('city'),
+                delivery_postcode=metadata.get('postcode')
+            )
                 
         elif status in ['canceled', 'failed']:
             # Return journals to stock
@@ -423,20 +446,20 @@ def payment_webhook():
         
     except Exception as e:
         if conn: conn.rollback()
-        logger.error(f"Webhook error: {e}")
+        logger.error(f"Webhook error: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
     finally:
         if cursor: cursor.close()
         if conn: conn.close()
-        
-        
-
-
 
 
 def send_telegram_notification(chat_id, payment_id, amount, product_id, customer_name, delivery_city, delivery_postcode):
     """Отправляет уведомление о заказе в Telegram"""
     try:
+        bot_token = os.getenv('BOT_TOKEN')
+        if not bot_token:
+            raise ValueError("BOT_TOKEN environment variable not set")
+            
         message = f"""
         🛍️ Новый оплаченный заказ
         
@@ -450,21 +473,60 @@ def send_telegram_notification(chat_id, payment_id, amount, product_id, customer
         📮 Индекс: {delivery_postcode}
         """
         
-        # Реализация отправки через Telegram Bot API
-        bot_token = os.getenv('BOT_TOKEN')
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         params = {
-            'chat_id': chat_id,
-            'text': message
+            'chat_id': int(chat_id),
+            'text': message,
+            'parse_mode': 'HTML'
         }
         
-        response = requests.post(url, json=params)
+        response = requests.post(url, json=params, timeout=10)
         response.raise_for_status()
         
-        logger.info(f"Notification sent to chat {chat_id}")
+        logger.info(f"Notification sent to chat {chat_id}. Response: {response.text}")
         
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Telegram API request failed: {str(e)}")
     except Exception as e:
-        logger.error(f"Failed to send Telegram notification: {str(e)}")
+        logger.error(f"Error sending Telegram notification: {str(e)}", exc_info=True)
+        raise
+        
+        
+
+
+
+
+# def send_telegram_notification(chat_id, payment_id, amount, product_id, customer_name, delivery_city, delivery_postcode):
+#     """Отправляет уведомление о заказе в Telegram"""
+#     try:
+#         message = f"""
+#         🛍️ Новый оплаченный заказ
+        
+#         🔹 Номер платежа: {payment_id}
+#         🔹 Сумма: {amount:.2f} RUB
+#         🔹 Товар: #{product_id}
+        
+#         Данные доставки:
+#         👤 ФИО: {customer_name}
+#         🏙️ Город: {delivery_city}
+#         📮 Индекс: {delivery_postcode}
+#         """
+        
+#         # Реализация отправки через Telegram Bot API
+#         bot_token = os.getenv('BOT_TOKEN')
+#         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+#         params = {
+#             'chat_id': chat_id,
+#             'text': message
+#         }
+        
+#         response = requests.post(url, json=params)
+#         response.raise_for_status()
+        
+#         logger.info(f"Notification sent to chat {chat_id}")
+        
+#     except Exception as e:
+#         logger.error(f"Failed to send Telegram notification: {str(e)}")
         
         
 
