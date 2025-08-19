@@ -650,64 +650,51 @@
     // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
-            setLoading(true);
-            console.log('Загрузка данных журнала...');
-            
-            const response = await fetch(`http://localhost:5007/get_journal?id=${journalId}&t=${Date.now()}`);
-            
-            if (!response.ok) {
-                throw new Error(`Ошибка HTTP: ${response.status}`);
-            }
+            // Сначала загружаем данные из API
+            const response = await fetch(`http://localhost:5007/get_journal?id=${journalId}&nocache=${Date.now()}`);
+            if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
-            console.log('Данные получены:', journalData);
             
-            // Проверяем, что данные есть
-            if (!journalData) {
-                throw new Error('Пустой ответ от сервера');
-            }
-            
-            // Обновляем данные
+            // ВАЖНО: Обновляем количество ТОЛЬКО из API, игнорируем параметры URL
             availableQuantity = parseInt(journalData.quantity) || 0;
-            basePrice = parseFloat(journalData.price) || 0;
             
-            // Обновляем отображение
-            if (journalData.title) {
-                document.getElementById('journal-title').textContent = journalData.title;
-            }
-            
-            if (journalData.year) {
-                document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year}`;
-            }
-            
-            if (journalData.description) {
-                document.getElementById('journal-description').textContent = journalData.description;
-            }
-            
+            // Остальные данные можно оставить из параметров URL как было
             updateQuantityDisplay();
             updatePrice();
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            
-            // Показываем ошибку пользователю
-            const errorElement = document.createElement('div');
-            errorElement.style.cssText = 'color: red; padding: 10px; background: #ffeeee; border: 1px solid red; margin: 10px 0;';
-            errorElement.textContent = `Ошибка загрузки: ${error.message}`;
-            
-            const container = document.querySelector('.journal-info');
-            if (container) {
-                container.insertBefore(errorElement, container.firstChild);
-                setTimeout(() => errorElement.remove(), 5000);
-            }
-            
-            // Показываем "Нет в наличии" при ошибке
-            availableQuantity = 0;
+            // При ошибке используем параметры URL как раньше
+            availableQuantity = parseInt(params.get('quantity')) || 0;
             updateQuantityDisplay();
-            
-        } finally {
-            setLoading(false);
         }
+    }
+
+    function updateQuantityDisplay() {
+        const quantityElement = document.getElementById('journal-quantity');
+        const buyBtn = document.getElementById('buy-btn');
+        
+        if (availableQuantity > 0) {
+            quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+            quantityElement.style.color = '';
+            buyBtn.disabled = false;
+            buyBtn.style.opacity = '1';
+        } else {
+            quantityElement.textContent = "Нет в наличии";
+            quantityElement.style.color = '#ff5555';
+            buyBtn.disabled = true;
+            buyBtn.style.opacity = '0.5';
+        }
+        
+        // Обновляем максимальное количество для выбора
+        const quantityIncreaseBtn = document.getElementById('quantity-increase');
+        if (quantity > availableQuantity) {
+            quantity = Math.max(1, availableQuantity);
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        }
+        quantityIncreaseBtn.disabled = quantity >= availableQuantity;
     }
 
     function updatePrice() {
@@ -718,28 +705,6 @@
         }
     }
 
-    function updateQuantityDisplay() {
-        const quantityElement = document.getElementById('journal-quantity');
-        const buyBtn = document.getElementById('buy-btn');
-        
-        if (quantityElement) {
-            quantityElement.textContent = availableQuantity > 0 
-                ? `В наличии: ${availableQuantity} шт.` 
-                : "Нет в наличии";
-            quantityElement.style.color = availableQuantity > 0 ? '' : '#ff5555';
-        }
-        
-        if (buyBtn) {
-            buyBtn.disabled = availableQuantity <= 0;
-            buyBtn.style.opacity = availableQuantity > 0 ? '1' : '0.5';
-        }
-        
-        // Обновляем кнопки количества
-        const quantityIncreaseBtn = document.getElementById('quantity-increase');
-        if (quantityIncreaseBtn) {
-            quantityIncreaseBtn.disabled = quantity >= availableQuantity;
-        }
-    }
 
     // ==================== СТРАНИЦЫ ====================
     function goToOrderPage() {
