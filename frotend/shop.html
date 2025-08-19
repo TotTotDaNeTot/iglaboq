@@ -652,8 +652,9 @@
         try {
             setLoading(true);
             
-            // ВАЖНО: Всегда грузим данные из API, игнорируем параметры URL
-            const response = await fetch(`http://localhost:5007/get_journal?id=${journalId}&t=${Date.now()}`);
+            // Используем новый URL API
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal?id=${journalId}&t=${Date.now()}`);
+            
             if (!response.ok) throw new Error('Ошибка загрузки данных');
             
             const journalData = await response.json();
@@ -672,7 +673,6 @@
             
         } catch (error) {
             console.error('Ошибка загрузки данных:', error);
-            // При ошибке показываем "Нет в наличии"
             availableQuantity = 0;
             updateQuantityDisplay();
         } finally {
