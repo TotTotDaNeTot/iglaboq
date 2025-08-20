@@ -543,14 +543,29 @@
         if (images.length <= 1 || isAnimating) return;
         
         isAnimating = true;
-        images[currentImageIndex].style.opacity = '0';
         
+        // Текущее активное изображение
+        const currentImage = images[currentImageIndex];
+        currentImage.style.opacity = '0';
+        
+        // Вычисляем новый индекс
+        currentImageIndex = (currentImageIndex + direction + images.length) % images.length;
+        
+        // Новое активное изображение
+        const nextImage = images[currentImageIndex];
+        nextImage.style.opacity = '0';
+        nextImage.classList.add('active');
+        
+        // Ждем завершения анимации исчезновения
         setTimeout(() => {
-            images[currentImageIndex].classList.remove('active');
-            currentImageIndex = (currentImageIndex + direction + images.length) % images.length;
-            images[currentImageIndex].classList.add('active');
-            images[currentImageIndex].style.opacity = '1';
-            isAnimating = false;
+            currentImage.classList.remove('active');
+            
+            // Показываем новое изображение
+            setTimeout(() => {
+                nextImage.style.opacity = '1';
+                isAnimating = false;
+            }, 50);
+            
         }, 300);
     }
 
