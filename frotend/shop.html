@@ -596,7 +596,7 @@
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        // ОЧИЩАЕМ ПЕРЕД ЗАГРУЗКОЙ
+        // Полностью очищаем
         galleryContainer.innerHTML = '';
         images = [];
         prevBtn.style.display = 'none';
@@ -605,16 +605,15 @@
         
         try {
             let imageNumber = 1;
-            let loadedImages = 0;
+            const loadedUrls = new Set(); // Для отслеживания уникальных URL
             
-            while (true) {
+            while (imageNumber <= 10) { // Ограничим 10 изображениями
                 const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
                 const imageUrl = await findImageWithAnyExtension(baseUrl);
                 
-                // Если изображение не найдено - прерываем цикл
                 if (!imageUrl) {
+                    // Если первое изображение не найдено
                     if (imageNumber === 1) {
-                        // Нет ни одного изображения
                         noImageElement.style.display = 'flex';
                         noImageElement.innerHTML = `
                             <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
@@ -628,39 +627,42 @@
                     break;
                 }
 
-                const img = new Image();
+                // Проверяем уникальность URL
+                if (loadedUrls.has(imageUrl)) {
+                    imageNumber++;
+                    continue;
+                }
+                
+                loadedUrls.add(imageUrl);
+                
+                const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
                 img.src = imageUrl;
                 img.alt = `Изображение ${imageNumber}`;
-                img.dataset.index = loadedImages; // Добавляем индекс
+                img.loading = 'lazy';
                 
-                await new Promise((resolve) => {
-                    img.onload = () => {
-                        // ПРОВЕРЯЕМ, что изображение еще не добавлено
-                        if (!images.some(existingImg => existingImg.src === img.src)) {
-                            galleryContainer.appendChild(img);
-                            images.push(img);
-                            loadedImages++;
-                            
-                            if (images.length === 1) {
-                                img.classList.add('active');
-                                img.style.opacity = '1';
-                                setupGalleryNavigation();
-                            }
-                            
-                            if (images.length > 1) {
-                                prevBtn.style.display = 'flex';
-                                nextBtn.style.display = 'flex';
-                                updateImageIndicator();
-                            }
-                        }
-                        resolve();
-                    };
-                    img.onerror = () => resolve();
-                });
+                galleryContainer.appendChild(img);
+                images.push(img);
+                
+                if (images.length === 1) {
+                    img.classList.add('active');
+                    img.style.opacity = '1';
+                    setupGalleryNavigation();
+                }
                 
                 imageNumber++;
+            }
+
+            // После загрузки всех изображений
+            if (images.length > 1) {
+                prevBtn.style.display = 'flex';
+                nextBtn.style.display = 'flex';
+                updateImageIndicator();
+            }
+            
+            if (images.length === 0) {
+                noImageElement.style.display = 'flex';
             }
 
         } catch (e) {
