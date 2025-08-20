@@ -605,7 +605,7 @@
         
         try {
             let imageNumber = 1;
-            const loadedImageNumbers = new Set(); // Отслеживаем номера изображений
+            const uniqueImages = new Set();
             
             while (imageNumber <= 10) {
                 const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
@@ -626,39 +626,46 @@
                     break;
                 }
 
-                // Проверяем, не загружали ли уже это изображение
-                if (loadedImageNumbers.has(imageNumber)) {
+                // ПРОВЕРЯЕМ УНИКАЛЬНОСТЬ ПО СОДЕРЖАНИЮ
+                const imageHash = await getImageHash(imageUrl);
+                if (uniqueImages.has(imageHash)) {
                     imageNumber++;
                     continue;
                 }
                 
-                loadedImageNumbers.add(imageNumber);
+                uniqueImages.add(imageHash);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
-                img.src = imageUrl;
+                img.src = imageUrl + '&nocache=' + Date.now(); // ДОБАВЛЯЕМ ПАРАМЕТР ПРОТИВ КЭША
                 img.alt = `Изображение ${imageNumber}`;
                 img.loading = 'lazy';
                 
-                galleryContainer.appendChild(img);
-                images.push(img);
-                
-                if (images.length === 1) {
-                    img.classList.add('active');
-                    img.style.opacity = '1';
-                    setupGalleryNavigation();
-                }
+                await new Promise((resolve) => {
+                    img.onload = () => {
+                        galleryContainer.appendChild(img);
+                        images.push(img);
+                        
+                        if (images.length === 1) {
+                            img.classList.add('active');
+                            img.style.opacity = '1';
+                            setupGalleryNavigation();
+                        }
+                        
+                        if (images.length > 1) {
+                            prevBtn.style.display = 'flex';
+                            nextBtn.style.display = 'flex';
+                            updateImageIndicator();
+                        }
+                        resolve();
+                    };
+                    img.onerror = () => resolve();
+                });
                 
                 imageNumber++;
             }
 
-            if (images.length > 1) {
-                prevBtn.style.display = 'flex';
-                nextBtn.style.display = 'flex';
-                updateImageIndicator();
-            }
-            
             if (images.length === 0) {
                 noImageElement.style.display = 'flex';
             }
@@ -675,6 +682,36 @@
                 <p>Ошибка загрузки</p>
             `;
         }
+    }
+
+    // Функция для получения хэша изображения
+    async function getImageHash(url) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const imageData = ctx.getImageData(0, 0, img.width, img.height);
+                const hash = simpleHash(imageData.data);
+                resolve(hash);
+            };
+            img.onerror = () => resolve('error_' + url);
+            img.src = url;
+        });
+    }
+
+    // Простая хэш-функция
+    function simpleHash(buffer) {
+        let hash = 0;
+        for (let i = 0; i < Math.min(buffer.length, 1000); i++) {
+            hash = ((hash << 5) - hash) + buffer[i];
+            hash |= 0;
+        }
+        return hash;
     }
 
     async function findImageWithAnyExtension(baseUrl) {
