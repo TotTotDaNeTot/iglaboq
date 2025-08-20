@@ -529,6 +529,12 @@
         const nextBtn = document.getElementById('gallery-next');
         const galleryWrapper = document.getElementById('gallery-wrapper');
         
+        // УДАЛЯЕМ старые обработчики чтобы избежать дублирования
+        prevBtn.onclick = null;
+        nextBtn.onclick = null;
+        galleryWrapper.ontouchstart = null;
+        galleryWrapper.ontouchend = null;
+        
         prevBtn.onclick = () => switchImage(-1);
         nextBtn.onclick = () => switchImage(1);
         
@@ -565,22 +571,22 @@
         
         const currentImage = images[currentImageIndex];
         currentImage.style.opacity = '0';
+        currentImage.classList.remove('active');
         
-        currentImageIndex = (currentImageIndex + direction + images.length) % images.length;
+        // Вычисляем новый индекс с проверкой границ
+        let newIndex = currentImageIndex + direction;
+        if (newIndex < 0) newIndex = images.length - 1;
+        if (newIndex >= images.length) newIndex = 0;
+        
+        currentImageIndex = newIndex;
         
         const nextImage = images[currentImageIndex];
-        nextImage.style.opacity = '0';
         nextImage.classList.add('active');
         
         setTimeout(() => {
-            currentImage.classList.remove('active');
-            
-            setTimeout(() => {
-                nextImage.style.opacity = '1';
-                updateImageIndicator(); // Обновляем индикатор
-                isAnimating = false;
-            }, 50);
-            
+            nextImage.style.opacity = '1';
+            updateImageIndicator();
+            isAnimating = false;
         }, 300);
     }
 
