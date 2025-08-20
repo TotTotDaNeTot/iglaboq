@@ -605,14 +605,13 @@
         
         try {
             let imageNumber = 1;
-            const loadedUrls = new Set(); // Для отслеживания уникальных URL
+            const loadedImageNumbers = new Set(); // Отслеживаем номера изображений
             
-            while (imageNumber <= 10) { // Ограничим 10 изображениями
+            while (imageNumber <= 10) {
                 const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
                 const imageUrl = await findImageWithAnyExtension(baseUrl);
                 
                 if (!imageUrl) {
-                    // Если первое изображение не найдено
                     if (imageNumber === 1) {
                         noImageElement.style.display = 'flex';
                         noImageElement.innerHTML = `
@@ -627,13 +626,13 @@
                     break;
                 }
 
-                // Проверяем уникальность URL
-                if (loadedUrls.has(imageUrl)) {
+                // Проверяем, не загружали ли уже это изображение
+                if (loadedImageNumbers.has(imageNumber)) {
                     imageNumber++;
                     continue;
                 }
                 
-                loadedUrls.add(imageUrl);
+                loadedImageNumbers.add(imageNumber);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
@@ -654,7 +653,6 @@
                 imageNumber++;
             }
 
-            // После загрузки всех изображений
             if (images.length > 1) {
                 prevBtn.style.display = 'flex';
                 nextBtn.style.display = 'flex';
