@@ -605,11 +605,12 @@
         
         try {
             let imageNumber = 1;
-            const uniqueImages = new Set();
             
             while (imageNumber <= 10) {
+                // ДОБАВЛЯЕМ СЛУЧАЙНЫЙ ПАРАМЕТР ДЛЯ КАЖДОГО ИЗОБРАЖЕНИЯ
+                const timestamp = Date.now() + Math.random();
                 const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
-                const imageUrl = await findImageWithAnyExtension(baseUrl);
+                const imageUrl = await findImageWithAnyExtension(baseUrl, timestamp);
                 
                 if (!imageUrl) {
                     if (imageNumber === 1) {
@@ -626,37 +627,35 @@
                     break;
                 }
 
-                // ПРОВЕРЯЕМ УНИКАЛЬНОСТЬ ПО СОДЕРЖАНИЮ
-                const imageHash = await getImageHash(imageUrl);
-                if (uniqueImages.has(imageHash)) {
-                    imageNumber++;
-                    continue;
-                }
-                
-                uniqueImages.add(imageHash);
-                
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
-                img.src = imageUrl + '&nocache=' + Date.now(); // ДОБАВЛЯЕМ ПАРАМЕТР ПРОТИВ КЭША
+                img.src = imageUrl;
                 img.alt = `Изображение ${imageNumber}`;
-                img.loading = 'lazy';
                 
                 await new Promise((resolve) => {
                     img.onload = () => {
-                        galleryContainer.appendChild(img);
-                        images.push(img);
+                        // ПРОВЕРЯЕМ ПО РАЗМЕРАМ - если такое же изображение уже есть
+                        const isDuplicate = images.some(existingImg => 
+                            existingImg.naturalWidth === img.naturalWidth && 
+                            existingImg.naturalHeight === img.naturalHeight
+                        );
                         
-                        if (images.length === 1) {
-                            img.classList.add('active');
-                            img.style.opacity = '1';
-                            setupGalleryNavigation();
-                        }
-                        
-                        if (images.length > 1) {
-                            prevBtn.style.display = 'flex';
-                            nextBtn.style.display = 'flex';
-                            updateImageIndicator();
+                        if (!isDuplicate) {
+                            galleryContainer.appendChild(img);
+                            images.push(img);
+                            
+                            if (images.length === 1) {
+                                img.classList.add('active');
+                                img.style.opacity = '1';
+                                setupGalleryNavigation();
+                            }
+                            
+                            if (images.length > 1) {
+                                prevBtn.style.display = 'flex';
+                                nextBtn.style.display = 'flex';
+                                updateImageIndicator();
+                            }
                         }
                         resolve();
                     };
@@ -682,6 +681,16 @@
                 <p>Ошибка загрузки</p>
             `;
         }
+    }
+
+    // ОБНОВЛЕННАЯ функция поиска изображений
+    async function findImageWithAnyExtension(baseUrl, timestamp) {
+        for (const ext of supportedFormats) {
+            // ДОБАВЛЯЕМ УНИКАЛЬНЫЙ ПАРАМЕТР ДЛЯ КАЖДОЙ ПРОВЕРКИ
+            const imageUrl = `${baseUrl}${ext}?t=${timestamp}`;
+            if (await checkImageExists(imageUrl)) return imageUrl;
+        }
+        return null;
     }
 
     async function findImageWithAnyExtension(baseUrl) {
