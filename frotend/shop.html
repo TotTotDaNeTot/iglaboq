@@ -490,9 +490,10 @@
     const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
-    let availableQuantity = parseInt(params.get('quantity')) || 0;
+    
     // Добавьте в самое начало скрипта
     let isPageRefreshed = false;
+    let availableQuantity = 0;
 
     // При загрузке страницы всегда обновляем данные
     window.addEventListener('load', function() {
