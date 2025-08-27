@@ -563,7 +563,6 @@
         }
     }
 
-    // Обновите функцию switchImage:
     function switchImage(direction) {
         if (images.length <= 1 || isAnimating) return;
         
@@ -590,124 +589,68 @@
         }, 300);
     }
 
-    async function loadAllImages() {
-        const galleryContainer = document.getElementById('gallery-images');
-        const prevBtn = document.getElementById('gallery-prev');
-        const nextBtn = document.getElementById('gallery-next');
-        const noImageElement = document.getElementById('no-image');
-        
-        // Полностью очищаем
-        galleryContainer.innerHTML = '';
-        images = [];
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-        noImageElement.style.display = 'none';
-        
+    // 1. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+    async function loadJournalImagesFromAPI() {
         try {
-            let imageNumber = 1;
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images?id=${journalId}&t=${Date.now()}`);
             
-            while (imageNumber <= 10) {
-                // ДОБАВЛЯЕМ СЛУЧАЙНЫЙ ПАРАМЕТР ДЛЯ КАЖДОГО ИЗОБРАЖЕНИЯ
-                const timestamp = Date.now() + Math.random();
-                const baseUrl = `https://raw.githubusercontent.com/TotTotDaNeTot/iglaboq/main/media/miniapp/journal_${journalId}/${imageNumber}`;
-                const imageUrl = await findImageWithAnyExtension(baseUrl, timestamp);
-                
-                if (!imageUrl) {
-                    if (imageNumber === 1) {
-                        noImageElement.style.display = 'flex';
-                        noImageElement.innerHTML = `
-                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                                <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                                <circle cx="8.5" cy="8.5" r="2.5"/>
-                            </svg>
-                            <p>Изображения недоступны</p>
-                        `;
-                    }
-                    break;
+            if (!response.ok) throw new Error('Ошибка загрузки изображений');
+            
+            const data = await response.json();
+            
+            // Используем прокси через API домен
+            return data.images.map(url => {
+                if (url.includes('localhost:9001')) {
+                    const minioPath = url.replace('http://localhost:9001/', '');
+                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/minio_proxy/${minioPath}`;
                 }
+                return url;
+            });
+            
+        } catch (error) {
+            console.error('Error loading images from API:', error);
+            return [];
+        }
+    }
 
-                const img = document.createElement('img');
-                img.className = 'gallery-image';
-                img.style.opacity = '0';
-                img.src = imageUrl;
-                img.alt = `Изображение ${imageNumber}`;
-                
-                await new Promise((resolve) => {
-                    img.onload = () => {
-                        // ПРОВЕРЯЕМ ПО РАЗМЕРАМ - если такое же изображение уже есть
-                        const isDuplicate = images.some(existingImg => 
-                            existingImg.naturalWidth === img.naturalWidth && 
-                            existingImg.naturalHeight === img.naturalHeight
-                        );
-                        
-                        if (!isDuplicate) {
-                            galleryContainer.appendChild(img);
-                            images.push(img);
-                            
-                            if (images.length === 1) {
-                                img.classList.add('active');
-                                img.style.opacity = '1';
-                                setupGalleryNavigation();
-                            }
-                            
-                            if (images.length > 1) {
-                                prevBtn.style.display = 'flex';
-                                nextBtn.style.display = 'flex';
-                                updateImageIndicator();
-                            }
-                        }
-                        resolve();
-                    };
-                    img.onerror = () => resolve();
-                });
-                
-                imageNumber++;
+    // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
+    async function loadJournalData() {
+        try {
+            setLoading(true);
+            
+            // API данные с uncertaily-domain
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal?id=${journalId}&t=${Date.now()}`);
+            
+            if (!response.ok) throw new Error('Ошибка загрузки данных');
+            
+            const journalData = await response.json();
+            
+            availableQuantity = parseInt(journalData.quantity) || 0;
+            basePrice = parseFloat(journalData.price) || 0;
+            
+            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
+            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
+            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
+            
+            updateQuantityDisplay();
+            updatePrice();
+            
+            // Загружаем изображения (будут с success-domain)
+            await loadAllImages();
+            
+        } catch (error) {
+            console.error('Ошибка загрузки данных:', error);
+            availableQuantity = 0;
+            updateQuantityDisplay();
+            
+            try {
+                await loadAllImages();
+            } catch (e) {
+                console.error('Ошибка загрузки изображений:', e);
             }
-
-            if (images.length === 0) {
-                noImageElement.style.display = 'flex';
-            }
-
-        } catch (e) {
-            console.error('Ошибка загрузки изображений:', e);
-            noImageElement.style.display = 'flex';
-            noImageElement.innerHTML = `
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="2.5"/>
-                </svg>
-                <p>Ошибка загрузки</p>
-            `;
+        } finally {
+            setLoading(false);
         }
-    }
-
-    // ОБНОВЛЕННАЯ функция поиска изображений
-    async function findImageWithAnyExtension(baseUrl, timestamp) {
-        for (const ext of supportedFormats) {
-            // ДОБАВЛЯЕМ УНИКАЛЬНЫЙ ПАРАМЕТР ДЛЯ КАЖДОЙ ПРОВЕРКИ
-            const imageUrl = `${baseUrl}${ext}?t=${timestamp}`;
-            if (await checkImageExists(imageUrl)) return imageUrl;
-        }
-        return null;
-    }
-
-    async function findImageWithAnyExtension(baseUrl) {
-        for (const ext of supportedFormats) {
-            const imageUrl = `${baseUrl}${ext}?t=${Date.now()}`;
-            if (await checkImageExists(imageUrl)) return imageUrl;
-        }
-        return null;
-    }
-
-    async function checkImageExists(url) {
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-            img.src = url;
-        });
     }
 
     // ==================== ПРЕЛОАДЕР ===================
