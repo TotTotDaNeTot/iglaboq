@@ -497,31 +497,16 @@
         }
     }
 
+    // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
     const journalId = params.get('journal');
     let currentImageIndex = 0;
     let images = [];
     let isAnimating = false;
-    const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
     let quantity = 1;
     let basePrice = parseFloat(params.get('price')) || 0;
-    
-    // Добавьте в самое начало скрипта
-    let isPageRefreshed = false;
     let availableQuantity = 0;
-
-    // При загрузке страницы всегда обновляем данные
-    window.addEventListener('load', function() {
-        if (!isPageRefreshed) {
-            loadJournalData();
-            isPageRefreshed = true;
-        }
-    });
-
-    // При явном обновлении страницы (F5/Ctrl+R)
-    window.addEventListener('beforeunload', function() {
-        isPageRefreshed = false;
-    });
+    let isPageRefreshed = false;
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
@@ -589,7 +574,7 @@
         }, 300);
     }
 
-    // 1. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
     async function loadJournalImagesFromAPI() {
         try {
             const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images?id=${journalId}&t=${Date.now()}`);
@@ -613,7 +598,7 @@
         }
     }
 
-    // 2. ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
+    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА (ОСТАВЛЯЕМ ТОЛЬКО ОДНУ ВЕРСИЮ)
     async function loadJournalData() {
         try {
             setLoading(true);
@@ -635,7 +620,7 @@
             updateQuantityDisplay();
             updatePrice();
             
-            // Загружаем изображения (будут с success-domain)
+            // Загружаем изображения
             await loadAllImages();
             
         } catch (error) {
@@ -733,6 +718,7 @@
     function updateQuantityDisplay() {
         const quantityElement = document.getElementById('journal-quantity');
         const buyBtn = document.getElementById('buy-btn');
+        const quantityIncreaseBtn = document.getElementById('quantity-increase');
         
         if (availableQuantity > 0) {
             quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
@@ -747,7 +733,6 @@
         }
         
         // Обновляем максимальное количество для выбора
-        const quantityIncreaseBtn = document.getElementById('quantity-increase');
         if (quantity > availableQuantity) {
             quantity = Math.max(1, availableQuantity);
             document.getElementById('quantity').textContent = quantity;
@@ -760,7 +745,6 @@
         const totalPrice = basePrice * quantity;
         document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
     }
-
 
     // ==================== СТРАНИЦЫ ====================
     function goToOrderPage() {
@@ -929,7 +913,7 @@
     async function processOrder(e) {
         if (e) e.preventDefault();
         
-        console.log("Начало обработки заказа"); // Отладочное сообщение
+        console.log("Начало обработки заказа");
         
         if (!validateForm()) {
             console.log("Валидация формы не пройдена");
@@ -952,7 +936,7 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
             
-            if (window.Telegram?.WebApp?.MainButton) {
+            if (window.Telegram?.WebApp) {
                 Telegram.WebApp.MainButton.showProgress();
             }
 
@@ -1028,7 +1012,7 @@
             submitBtn.disabled = false;
             submitBtn.textContent = originalText;
             
-            if (window.Telegram?.WebApp?.MainButton) {
+            if (window.Telegram?.WebApp) {
                 Telegram.WebApp.MainButton.hideProgress();
             }
         }
@@ -1054,18 +1038,30 @@
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     document.addEventListener('DOMContentLoaded', () => {
+        // Инициализация WebApp
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.expand();
+            Telegram.WebApp.MainButton.hide();
+            
+            const user = Telegram.WebApp.initDataUnsafe?.user;
+            if (user) {
+                window.userId = user.id;
+                window.chatId = Telegram.WebApp.initDataUnsafe?.chat?.id || user.id;
+            }
+        }
+
         createStars();
         setLoading(true);
         setupFullNameHandling();
         
-        // ВАЖНО: Загружаем данные при каждой загрузке страницы
+        // Загружаем данные только один раз
         loadJournalData().then(() => {
             updatePrice();
         }).catch(() => {
             setLoading(false);
         });
 
-        // Остальной код без изменений...
+        // Обработчики событий
         document.getElementById('quantity-decrease').addEventListener('click', () => {
             if (quantity > 1) {
                 quantity--;
