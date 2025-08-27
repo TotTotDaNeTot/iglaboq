@@ -653,52 +653,81 @@
         }
     }
 
+    async function loadAllImages() {
+        const galleryContainer = document.getElementById('gallery-images');
+        const prevBtn = document.getElementById('gallery-prev');
+        const nextBtn = document.getElementById('gallery-next');
+        const noImageElement = document.getElementById('no-image');
+        
+        // Полностью очищаем
+        galleryContainer.innerHTML = '';
+        images = [];
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        noImageElement.style.display = 'none';
+        
+        try {
+            // Загружаем изображения через API
+            const imageUrls = await loadJournalImagesFromAPI();
+            
+            if (imageUrls.length === 0) {
+                noImageElement.style.display = 'flex';
+                noImageElement.innerHTML = `
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="2.5"/>
+                    </svg>
+                    <p>Изображения недоступны</p>
+                `;
+                return;
+            }
+
+            // Создаем элементы изображений
+            imageUrls.forEach((imageUrl, index) => {
+                const img = document.createElement('img');
+                img.className = 'gallery-image';
+                img.style.opacity = '0';
+                img.src = imageUrl;
+                img.alt = `Изображение ${index + 1}`;
+                img.loading = 'lazy';
+                
+                galleryContainer.appendChild(img);
+                images.push(img);
+                
+                if (index === 0) {
+                    img.classList.add('active');
+                    img.style.opacity = '1';
+                }
+            });
+
+            if (images.length > 0) {
+                setupGalleryNavigation();
+                if (images.length > 1) {
+                    prevBtn.style.display = 'flex';
+                    nextBtn.style.display = 'flex';
+                    updateImageIndicator();
+                }
+            }
+
+        } catch (e) {
+            console.error('Ошибка загрузки изображений:', e);
+            noImageElement.style.display = 'flex';
+            noImageElement.innerHTML = `
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="2.5"/>
+                </svg>
+                <p>Ошибка загрузки</p>
+            `;
+        }
+    }
+
     // ==================== ПРЕЛОАДЕР ===================
     function setLoading(loading) {
         const preloader = document.getElementById('preloader');
         preloader.style.display = loading ? 'flex' : 'none';
-    }
-
-    // ==================== ДАННЫЕ ЖУРНАЛА ====================
-    async function loadJournalData() {
-        try {
-            setLoading(true); // Включаем прелоадер
-            
-            // Загружаем данные журнала
-            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal?id=${journalId}&t=${Date.now()}`);
-            
-            if (!response.ok) throw new Error('Ошибка загрузки данных');
-            
-            const journalData = await response.json();
-            
-            // Обновляем данные
-            availableQuantity = parseInt(journalData.quantity) || 0;
-            basePrice = parseFloat(journalData.price) || 0;
-            
-            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
-            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
-            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
-            
-            updateQuantityDisplay();
-            updatePrice();
-            
-            // ТЕПЕРЬ загружаем изображения
-            await loadAllImages();
-            
-        } catch (error) {
-            console.error('Ошибка загрузки данных:', error);
-            availableQuantity = 0;
-            updateQuantityDisplay();
-            
-            // Все равно пытаемся загрузить изображения
-            try {
-                await loadAllImages();
-            } catch (e) {
-                console.error('Ошибка загрузки изображений:', e);
-            }
-        } finally {
-            setLoading(false); // Выключаем прелоадер
-        }
     }
 
     function updateQuantityDisplay() {
