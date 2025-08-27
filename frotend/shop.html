@@ -583,10 +583,16 @@
             
             const data = await response.json();
             
-            // Используем прокси через API домен
+            // Используем прокси через API домен - ОБНОВЛЕННЫЙ КОД
             return data.images.map(url => {
+                // Заменяем localhost:9001 на правильный домен Minio
                 if (url.includes('localhost:9001')) {
                     const minioPath = url.replace('http://localhost:9001/', '');
+                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/minio_proxy/${minioPath}`;
+                }
+                // Заменяем localhost:9000 на правильный домен
+                if (url.includes('localhost:9000')) {
+                    const minioPath = url.replace('http://localhost:9000/', '');
                     return `https://uncertainly-kind-nuthatch.cloudpub.ru/minio_proxy/${minioPath}`;
                 }
                 return url;
@@ -655,6 +661,8 @@
             // Загружаем изображения через API
             const imageUrls = await loadJournalImagesFromAPI();
             
+            console.log('Полученные URL изображений:', imageUrls); // ОТЛАДКА
+            
             if (imageUrls.length === 0) {
                 noImageElement.style.display = 'flex';
                 noImageElement.innerHTML = `
@@ -670,12 +678,24 @@
 
             // Создаем элементы изображений
             imageUrls.forEach((imageUrl, index) => {
+                console.log('Загрузка изображения:', imageUrl); // ОТЛАДКА
+                
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'lazy';
+                
+                // Добавляем обработчики для отладки
+                img.onload = () => {
+                    console.log('Изображение загружено:', imageUrl);
+                    img.style.opacity = '1';
+                };
+                img.onerror = () => {
+                    console.error('Ошибка загрузки изображения:', imageUrl);
+                    img.style.opacity = '0';
+                };
                 
                 galleryContainer.appendChild(img);
                 images.push(img);
