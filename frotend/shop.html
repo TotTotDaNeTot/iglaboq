@@ -617,14 +617,14 @@
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        // Полностью очищаем
+        // Очищаем
         galleryContainer.innerHTML = '';
         images = [];
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
         noImageElement.style.display = 'none';
         
-        // ДОБАВЛЯЕМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ НА САМУ СТРАНИЦУ
+        // ДИАГНОСТИКА: добавляем отладочную информацию НА САМУ СТРАНИЦУ
         const debugInfo = document.createElement('div');
         debugInfo.style.position = 'fixed';
         debugInfo.style.top = '10px';
@@ -636,7 +636,6 @@
         debugInfo.style.fontSize = '12px';
         debugInfo.style.borderRadius = '5px';
         debugInfo.id = 'debug-info';
-        debugInfo.innerHTML = '<div>🔄 Начинаем загрузку изображений...</div>';
         document.body.appendChild(debugInfo);
         
         function updateDebugInfo(message) {
@@ -645,9 +644,9 @@
         }
         
         try {
-            updateDebugInfo(`📖 Journal ID: ${journalId}`);
+            updateDebugInfo('🔄 Загрузка изображений...');
             
-            // Загружаем URLs
+            // Загружаем URLs через API
             const imageUrls = await loadJournalImagesFromAPI();
             updateDebugInfo(`📦 Получено URL: ${imageUrls.length}`);
             
@@ -657,9 +656,9 @@
                 return;
             }
 
-            updateDebugInfo(`🔗 Первый URL: ${imageUrls[0].substring(0, 80)}...`);
+            updateDebugInfo(`🔗 Пример URL: ${imageUrls[0].substring(0, 80)}...`);
             
-            // ТЕСТ: Открываем первый URL в новой вкладке
+            // КНОПКА ТЕСТА: открыть изображение вручную
             const testBtn = document.createElement('button');
             testBtn.textContent = 'Тест: Открыть изображение';
             testBtn.style.position = 'fixed';
@@ -675,7 +674,7 @@
             testBtn.onclick = () => window.open(imageUrls[0], '_blank');
             document.body.appendChild(testBtn);
 
-            // ПРОСТОЙ СПОСОБ: создаем изображения без сложной логики
+            // ПРОСТОЙ СПОСОБ: создаем изображения
             imageUrls.forEach((imageUrl, index) => {
                 updateDebugInfo(`🖼️ Создаем изображение ${index + 1}`);
                 
@@ -684,11 +683,8 @@
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
-                img.style.width = '100%';
-                img.style.height = 'auto';
-                img.style.display = 'block';
                 
-                // ДЛЯ ОТЛАДКИ: добавляем рамку
+                // ДЛЯ ОТЛАДКИ: добавляем рамки
                 img.style.border = '3px solid red';
                 img.style.boxSizing = 'border-box';
                 
