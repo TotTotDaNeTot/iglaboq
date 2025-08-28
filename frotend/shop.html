@@ -84,23 +84,27 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: hidden;
     }
     .gallery-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      border-radius: 12px;
-      box-shadow: none !important;
-      display: block !important;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      -webkit-user-drag: none;
-      pointer-events: none;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 12px;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        -webkit-user-drag: none;
+        display: none; /* Сначала скрыты */
     }
     .gallery-image.active {
-      display: block;
+        display: block; /* Показываем активное */
+        opacity: 1; /* Делаем видимым */
+        z-index: 1; /* Поверх остальных */
     }
     .gallery-nav {
       position: absolute;
@@ -620,7 +624,7 @@
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        // Очищаем контейнеры
+        // Очищаем
         galleryContainer.innerHTML = '';
         images = [];
         prevBtn.style.display = 'none';
@@ -628,11 +632,11 @@
         noImageElement.style.display = 'none';
         
         try {
-            console.log('Loading image URLs for journal:', journalId);
+            console.log('🔄 Загрузка изображений для журнала:', journalId);
             
-            // Загружаем presigned URLs
+            // Загружаем URLs
             const imageUrls = await loadJournalImagesFromAPI();
-            console.log('Image URLs:', imageUrls);
+            console.log('📦 Получено URL:', imageUrls);
             
             if (imageUrls.length === 0) {
                 noImageElement.style.display = 'flex';
@@ -647,9 +651,9 @@
                 return;
             }
 
-            // Создаем и загружаем изображения
+            // Создаем изображения
             imageUrls.forEach((imageUrl, index) => {
-                console.log('Creating image:', imageUrl);
+                console.log('🖼️ Создаем изображение:', imageUrl);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
@@ -657,14 +661,16 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // Обработчики для отладки
+                // Отладка
                 img.onload = () => {
-                    console.log('✅ Image loaded:', imageUrl);
-                    img.style.opacity = '1';
+                    console.log('✅ Изображение загружено');
+                    if (index === 0) {
+                        img.style.opacity = '1';
+                    }
                 };
                 
                 img.onerror = (e) => {
-                    console.error('❌ Image failed:', imageUrl, e);
+                    console.error('❌ Ошибка загрузки:', e);
                     // Заглушка при ошибке
                     img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0Ij5FcnJvciBsb2FkaW5nIGltYWdlPC90ZXh0Pjwvc3ZnPg==';
                 };
@@ -672,14 +678,13 @@
                 galleryContainer.appendChild(img);
                 images.push(img);
                 
-                // Первое изображение сразу активно
+                // Первое изображение активно
                 if (index === 0) {
                     img.classList.add('active');
-                    img.style.opacity = '1';
                 }
             });
 
-            // Настраиваем навигацию
+            // Настраиваем галерею
             if (images.length > 0) {
                 setupGalleryNavigation();
                 if (images.length > 1) {
@@ -687,10 +692,11 @@
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
                 }
+                console.log('🎉 Галерея готова');
             }
 
         } catch (e) {
-            console.error('Error in loadAllImages:', e);
+            console.error('💥 Ошибка:', e);
             noImageElement.style.display = 'flex';
             noImageElement.innerHTML = `
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
