@@ -577,60 +577,29 @@
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ ЧЕРЕЗ PRESIGNED URL
     async function loadJournalImagesFromAPI() {
         try {
-            // Используем новый endpoint с presigned URLs
+            console.log('📡 Fetching presigned URLs...');
+            
             const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
             
-            if (!response.ok) throw new Error('Ошибка загрузки изображений');
+            console.log('📡 Response status:', response.status);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ API Error:', errorText);
+                throw new Error('Ошибка загрузки изображений');
+            }
             
             const data = await response.json();
+            console.log('✅ Presigned URLs received:', data.images);
             return data.images;
             
         } catch (error) {
-            console.error('Error loading images from API:', error);
+            console.error('❌ Error loading images from API:', error);
             return [];
         }
     }
 
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА (ОСТАВЛЯЕМ ТОЛЬКО ОДНУ ВЕРСИЮ)
-    async function loadJournalData() {
-        try {
-            setLoading(true);
-            
-            // API данные с uncertaily-domain
-            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal?id=${journalId}&t=${Date.now()}`);
-            
-            if (!response.ok) throw new Error('Ошибка загрузки данных');
-            
-            const journalData = await response.json();
-            
-            availableQuantity = parseInt(journalData.quantity) || 0;
-            basePrice = parseFloat(journalData.price) || 0;
-            
-            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
-            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
-            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
-            
-            updateQuantityDisplay();
-            updatePrice();
-            
-            // Загружаем изображения
-            await loadAllImages();
-            
-        } catch (error) {
-            console.error('Ошибка загрузки данных:', error);
-            availableQuantity = 0;
-            updateQuantityDisplay();
-            
-            try {
-                await loadAllImages();
-            } catch (e) {
-                console.error('Ошибка загрузки изображений:', e);
-            }
-        } finally {
-            setLoading(false);
-        }
-    }
-
     async function loadAllImages() {
         const galleryContainer = document.getElementById('gallery-images');
         const prevBtn = document.getElementById('gallery-prev');
@@ -645,10 +614,12 @@
         noImageElement.style.display = 'none';
         
         try {
-            // Загружаем изображения через API
+            console.log('🔄 Starting image loading...');
+            
+            // Загружаем presigned URLs через API
             const imageUrls = await loadJournalImagesFromAPI();
             
-            console.log('Полученные URL изображений:', imageUrls); // ОТЛАДКА
+            console.log('📦 Received image URLs:', imageUrls);
             
             if (imageUrls.length === 0) {
                 noImageElement.style.display = 'flex';
@@ -665,7 +636,7 @@
 
             // Создаем элементы изображений
             imageUrls.forEach((imageUrl, index) => {
-                console.log('Загрузка изображения:', imageUrl); // ОТЛАДКА
+                console.log(`🖼️ Creating image ${index + 1}:`, imageUrl);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
@@ -674,14 +645,19 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'lazy';
                 
-                // Добавляем обработчики для отладки
+                // Обработчики для отладки
                 img.onload = () => {
-                    console.log('Изображение загружено:', imageUrl);
+                    console.log(`✅ Image ${index + 1} loaded successfully`);
                     img.style.opacity = '1';
                 };
-                img.onerror = () => {
-                    console.error('Ошибка загрузки изображения:', imageUrl);
+                
+                img.onerror = (e) => {
+                    console.error(`❌ Failed to load image ${index + 1}:`, imageUrl, e);
                     img.style.opacity = '0';
+                    
+                    // Показываем placeholder при ошибке
+                    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0Ij5FcnJvciBsb2FkaW5nIGltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                    img.style.opacity = '1';
                 };
                 
                 galleryContainer.appendChild(img);
@@ -694,16 +670,20 @@
             });
 
             if (images.length > 0) {
+                console.log('✅ All images created, setting up gallery...');
                 setupGalleryNavigation();
+                
                 if (images.length > 1) {
                     prevBtn.style.display = 'flex';
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
                 }
+                
+                console.log('🎉 Gallery setup complete');
             }
 
         } catch (e) {
-            console.error('Ошибка загрузки изображений:', e);
+            console.error('💥 Error in loadAllImages:', e);
             noImageElement.style.display = 'flex';
             noImageElement.innerHTML = `
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
