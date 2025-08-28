@@ -574,29 +574,16 @@
         }, 300);
     }
 
-    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ
+    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ ЧЕРЕЗ PRESIGNED URL
     async function loadJournalImagesFromAPI() {
         try {
-            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images?id=${journalId}&t=${Date.now()}`);
+            // Используем новый endpoint с presigned URLs
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
             
             if (!response.ok) throw new Error('Ошибка загрузки изображений');
             
             const data = await response.json();
-            
-            // Используем прокси через API домен - ОБНОВЛЕННЫЙ КОД
-            return data.images.map(url => {
-                // Заменяем localhost:9001 на правильный домен Minio
-                if (url.includes('localhost:9001')) {
-                    const minioPath = url.replace('http://localhost:9001/', '');
-                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/minio_proxy/${minioPath}`;
-                }
-                // Заменяем localhost:9000 на правильный домен
-                if (url.includes('localhost:9000')) {
-                    const minioPath = url.replace('http://localhost:9000/', '');
-                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/minio_proxy/${minioPath}`;
-                }
-                return url;
-            });
+            return data.images;
             
         } catch (error) {
             console.error('Error loading images from API:', error);
