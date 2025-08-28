@@ -514,35 +514,28 @@
 
     // ==================== ГАЛЕРЕЯ ====================
     // Функция для настройки навигации по галерее
+    // Упрощенная навигация
     function setupGalleryNavigation() {
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
-        const galleryWrapper = document.getElementById('gallery-wrapper');
         
-        // Удаляем старые обработчики
-        prevBtn.onclick = null;
-        nextBtn.onclick = null;
-        
-        // Назначаем новые обработчики
-        prevBtn.onclick = () => switchImage(-1);
-        nextBtn.onclick = () => switchImage(1);
-        
-        // Свайпы для мобильных устройств
-        let touchStartX = 0;
-        
-        galleryWrapper.ontouchstart = (e) => {
-            touchStartX = e.touches[0].clientX;
+        prevBtn.onclick = () => {
+            if (images.length <= 1) return;
+            
+            // Простое переключение
+            images.forEach(img => img.style.opacity = '0');
+            currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+            images[currentImageIndex].style.opacity = '1';
+            updateImageIndicator();
         };
         
-        galleryWrapper.ontouchend = (e) => {
-            if (isAnimating) return;
+        nextBtn.onclick = () => {
+            if (images.length <= 1) return;
             
-            const touchEndX = e.changedTouches[0].clientX;
-            const diffX = touchStartX - touchEndX;
-            
-            if (Math.abs(diffX) > 50) {
-                diffX > 0 ? switchImage(1) : switchImage(-1);
-            }
+            images.forEach(img => img.style.opacity = '0');
+            currentImageIndex = (currentImageIndex + 1) % images.length;
+            images[currentImageIndex].style.opacity = '1';
+            updateImageIndicator();
         };
     }
 
@@ -624,66 +617,108 @@
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        // Очищаем
+        // Полностью очищаем
         galleryContainer.innerHTML = '';
         images = [];
         prevBtn.style.display = 'none';
         nextBtn.style.display = 'none';
         noImageElement.style.display = 'none';
         
+        // ДОБАВЛЯЕМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ НА САМУ СТРАНИЦУ
+        const debugInfo = document.createElement('div');
+        debugInfo.style.position = 'fixed';
+        debugInfo.style.top = '10px';
+        debugInfo.style.left = '10px';
+        debugInfo.style.background = 'rgba(0,0,0,0.9)';
+        debugInfo.style.color = 'white';
+        debugInfo.style.padding = '10px';
+        debugInfo.style.zIndex = '10000';
+        debugInfo.style.fontSize = '12px';
+        debugInfo.style.borderRadius = '5px';
+        debugInfo.id = 'debug-info';
+        debugInfo.innerHTML = '<div>🔄 Начинаем загрузку изображений...</div>';
+        document.body.appendChild(debugInfo);
+        
+        function updateDebugInfo(message) {
+            debugInfo.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            console.log(message);
+        }
+        
         try {
-            console.log('🔄 Загрузка изображений для журнала:', journalId);
+            updateDebugInfo(`📖 Journal ID: ${journalId}`);
             
             // Загружаем URLs
             const imageUrls = await loadJournalImagesFromAPI();
-            console.log('📦 Получено URL:', imageUrls);
+            updateDebugInfo(`📦 Получено URL: ${imageUrls.length}`);
             
             if (imageUrls.length === 0) {
+                updateDebugInfo('❌ Нет изображений');
                 noImageElement.style.display = 'flex';
-                noImageElement.innerHTML = `
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <circle cx="8.5" cy="8.5" r="2.5"/>
-                    </svg>
-                    <p>Изображения недоступны</p>
-                `;
                 return;
             }
 
-            // Создаем изображения
+            updateDebugInfo(`🔗 Первый URL: ${imageUrls[0].substring(0, 80)}...`);
+            
+            // ТЕСТ: Открываем первый URL в новой вкладке
+            const testBtn = document.createElement('button');
+            testBtn.textContent = 'Тест: Открыть изображение';
+            testBtn.style.position = 'fixed';
+            testBtn.style.top = '50px';
+            testBtn.style.left = '10px';
+            testBtn.style.zIndex = '10000';
+            testBtn.style.padding = '8px';
+            testBtn.style.background = '#007bff';
+            testBtn.style.color = 'white';
+            testBtn.style.border = 'none';
+            testBtn.style.borderRadius = '3px';
+            testBtn.style.fontSize = '11px';
+            testBtn.onclick = () => window.open(imageUrls[0], '_blank');
+            document.body.appendChild(testBtn);
+
+            // ПРОСТОЙ СПОСОБ: создаем изображения без сложной логики
             imageUrls.forEach((imageUrl, index) => {
-                console.log('🖼️ Создаем изображение:', imageUrl);
+                updateDebugInfo(`🖼️ Создаем изображение ${index + 1}`);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
+                img.style.width = '100%';
+                img.style.height = 'auto';
+                img.style.display = 'block';
                 
-                // Отладка
+                // ДЛЯ ОТЛАДКИ: добавляем рамку
+                img.style.border = '3px solid red';
+                img.style.boxSizing = 'border-box';
+                
                 img.onload = () => {
-                    console.log('✅ Изображение загружено');
-                    if (index === 0) {
-                        img.style.opacity = '1';
-                    }
+                    updateDebugInfo(`✅ Изобр. ${index + 1} ЗАГРУЖЕНО!`);
+                    img.style.border = '3px solid green';
+                    img.style.opacity = '1';
                 };
                 
                 img.onerror = (e) => {
-                    console.error('❌ Ошибка загрузки:', e);
-                    // Заглушка при ошибке
-                    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0Ij5FcnJvciBsb2FkaW5nIGltYWdlPC90ZXh0Pjwvc3ZnPg==';
+                    updateDebugInfo(`❌ Ошибка загрузки ${index + 1}: ${e}`);
+                    img.style.border = '3px solid red';
                 };
                 
                 galleryContainer.appendChild(img);
                 images.push(img);
                 
-                // Первое изображение активно
+                // Первое изображение сразу видимо
                 if (index === 0) {
-                    img.classList.add('active');
+                    img.style.opacity = '1';
+                } else {
+                    img.style.opacity = '0';
+                    img.style.position = 'absolute';
+                    img.style.top = '0';
+                    img.style.left = '0';
                 }
             });
 
+            updateDebugInfo('🎉 Все изображения созданы');
+            
             // Настраиваем галерею
             if (images.length > 0) {
                 setupGalleryNavigation();
@@ -692,20 +727,11 @@
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
                 }
-                console.log('🎉 Галерея готова');
             }
 
         } catch (e) {
-            console.error('💥 Ошибка:', e);
+            updateDebugInfo(`💥 Ошибка: ${e.message}`);
             noImageElement.style.display = 'flex';
-            noImageElement.innerHTML = `
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="2.5"/>
-                </svg>
-                <p>Ошибка загрузки изображений</p>
-            `;
         }
     }
 
