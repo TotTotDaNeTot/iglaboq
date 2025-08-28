@@ -597,7 +597,24 @@
         }
     }
 
-    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА (ОСТАВЛЯЕМ ТОЛЬКО ОДНУ ВЕРСИЮ)
+    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
+    async function loadJournalData() {
+        try {
+            // Загрузка изображений
+            await loadAllImages();
+            
+            // Здесь можно добавить загрузку других данных журнала, если нужно
+            // Например: availableQuantity = data.available_quantity;
+            
+            setLoading(false);
+            
+        } catch (error) {
+            console.error('Error loading journal data:', error);
+            setLoading(false);
+        }
+    }
+
+    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ВСЕХ ИЗОБРАЖЕНИЙ
     async function loadAllImages() {
         const galleryContainer = document.getElementById('gallery-images');
         const prevBtn = document.getElementById('gallery-prev');
@@ -633,7 +650,9 @@
             
             const imageUrls = await loadJournalImagesFromAPI();
             updateDebugInfo(`📦 Получено URL: ${imageUrls.length}`);
-            updateDebugInfo(`🔗 Пример URL: ${imageUrls[0]}`);
+            if (imageUrls.length > 0) {
+                updateDebugInfo(`🔗 Пример URL: ${imageUrls[0]}`);
+            }
             
             if (imageUrls.length === 0) {
                 updateDebugInfo('❌ Нет изображений');
