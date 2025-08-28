@@ -577,24 +577,22 @@
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ИЗОБРАЖЕНИЙ ЧЕРЕЗ PRESIGNED URL
     async function loadJournalImagesFromAPI() {
         try {
-            console.log('📡 Fetching presigned URLs...');
-            
             const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
             
-            console.log('📡 Response status:', response.status);
-            
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ API Error:', errorText);
-                throw new Error('Ошибка загрузки изображений');
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
-            console.log('✅ Presigned URLs received:', data.images);
             return data.images;
             
         } catch (error) {
-            console.error('❌ Error loading images from API:', error);
+            // Показываем ошибку в debug-info
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                debugInfo.innerHTML += `<div style="color: red;">❌ API Error: ${error}</div>`;
+            }
+            console.error('Error loading images from API:', error);
             return [];
         }
     }
@@ -612,11 +610,33 @@
         nextBtn.style.display = 'none';
         noImageElement.style.display = 'none';
         
+        // ДОБАВЛЯЕМ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ НА СТРАНИЦУ
+        const debugInfo = document.createElement('div');
+        debugInfo.style.position = 'fixed';
+        debugInfo.style.top = '10px';
+        debugInfo.style.left = '10px';
+        debugInfo.style.background = 'rgba(0,0,0,0.8)';
+        debugInfo.style.color = 'white';
+        debugInfo.style.padding = '10px';
+        debugInfo.style.zIndex = '1000';
+        debugInfo.style.fontSize = '12px';
+        debugInfo.id = 'debug-info';
+        document.body.appendChild(debugInfo);
+        
+        function updateDebugInfo(message) {
+            debugInfo.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            console.log(message);
+        }
+        
         try {
-            // ПРОСТО ЗАГРУЖАЕМ URLS БЕЗ ТАЙМАУТОВ
+            updateDebugInfo('🔄 Начинаем загрузку изображений...');
+            
             const imageUrls = await loadJournalImagesFromAPI();
+            updateDebugInfo(`📦 Получено URL: ${imageUrls.length}`);
+            updateDebugInfo(`🔗 Пример URL: ${imageUrls[0]}`);
             
             if (imageUrls.length === 0) {
+                updateDebugInfo('❌ Нет изображений');
                 noImageElement.style.display = 'flex';
                 noImageElement.innerHTML = `
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
@@ -629,13 +649,29 @@
                 return;
             }
 
-            // ПРОСТО СОЗДАЕМ ИЗОБРАЖЕНИЯ БЕЗ СЛОЖНОЙ ЛОГИКИ
+            // ТЕСТ: Открываем первый URL в новой вкладке
+            updateDebugInfo('🧪 Тестируем первый URL...');
+            setTimeout(() => {
+                window.open(imageUrls[0], '_blank');
+            }, 1000);
+
             imageUrls.forEach((imageUrl, index) => {
+                updateDebugInfo(`🖼️ Создаем изображение ${index}: ${imageUrl}`);
+                
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
-                img.loading = 'eager'; // Важно: eager вместо lazy
+                img.loading = 'eager';
+                
+                img.onload = () => {
+                    updateDebugInfo(`✅ Изображение ${index} загружено!`);
+                    img.style.opacity = '1';
+                };
+                
+                img.onerror = (e) => {
+                    updateDebugInfo(`❌ Ошибка загрузки ${index}: ${e}`);
+                };
                 
                 galleryContainer.appendChild(img);
                 images.push(img);
@@ -645,7 +681,8 @@
                 }
             });
 
-            // НАСТРОЙКА ГАЛЕРЕИ СРАЗУ
+            updateDebugInfo('🎉 Все изображения созданы');
+            
             if (images.length > 0) {
                 setupGalleryNavigation();
                 if (images.length > 1) {
@@ -656,15 +693,20 @@
             }
 
         } catch (e) {
-            console.error('Error loading images:', e);
+            updateDebugInfo(`💥 Критическая ошибка: ${e}`);
             noImageElement.style.display = 'flex';
             noImageElement.innerHTML = `
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="2.5"/>
-                </svg>
-                <p>Ошибка загрузки</p>
+                <div style="text-align: center;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="2.5"/>
+                    </svg>
+                    <p>Ошибка загрузки</p>
+                    <div style="font-size: 12px; color: #666; margin-top: 10px;">
+                        ${e.message}
+                    </div>
+                </div>
             `;
         }
     }
