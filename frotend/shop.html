@@ -601,12 +601,14 @@
 
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА (ОСТАВЛЯЕМ ТОЛЬКО ОДНУ ВЕРСИЮ)
     async function loadAllImages() {
+        console.log('=== START loadAllImages ===');
+        
         const galleryContainer = document.getElementById('gallery-images');
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        // Полностью очищаем
+        // Очищаем
         galleryContainer.innerHTML = '';
         images = [];
         prevBtn.style.display = 'none';
@@ -614,14 +616,12 @@
         noImageElement.style.display = 'none';
         
         try {
-            console.log('🔄 Starting image loading...');
-            
-            // Загружаем presigned URLs через API
+            console.log('🔄 Loading image URLs...');
             const imageUrls = await loadJournalImagesFromAPI();
-            
-            console.log('📦 Received image URLs:', imageUrls);
+            console.log('📦 Image URLs received:', imageUrls);
             
             if (imageUrls.length === 0) {
+                console.log('❌ No images found');
                 noImageElement.style.display = 'flex';
                 noImageElement.innerHTML = `
                     <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
@@ -634,30 +634,27 @@
                 return;
             }
 
-            // Создаем элементы изображений
+            // Создаем изображения
             imageUrls.forEach((imageUrl, index) => {
-                console.log(`🖼️ Creating image ${index + 1}:`, imageUrl);
+                console.log(`🖼️ Creating image ${index}: ${imageUrl}`);
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
-                img.loading = 'lazy';
+                img.loading = 'eager';
                 
-                // Обработчики для отладки
+                // ДЕТАЛЬНАЯ ОТЛАДКА
                 img.onload = () => {
-                    console.log(`✅ Image ${index + 1} loaded successfully`);
+                    console.log(`✅ IMAGE LOADED: ${imageUrl}`);
                     img.style.opacity = '1';
                 };
                 
                 img.onerror = (e) => {
-                    console.error(`❌ Failed to load image ${index + 1}:`, imageUrl, e);
+                    console.error(`❌ IMAGE ERROR: ${imageUrl}`, e);
+                    console.error('Error event:', e);
                     img.style.opacity = '0';
-                    
-                    // Показываем placeholder при ошибке
-                    img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDMwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzMzMiLz48dGV4dCB4PSI1MCIgeT0iMTAwIiBmaWxsPSJ3aGl0ZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0Ij5FcnJvciBsb2FkaW5nIGltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                    img.style.opacity = '1';
                 };
                 
                 galleryContainer.appendChild(img);
@@ -665,35 +662,22 @@
                 
                 if (index === 0) {
                     img.classList.add('active');
-                    img.style.opacity = '1';
                 }
             });
 
-            if (images.length > 0) {
-                console.log('✅ All images created, setting up gallery...');
-                setupGalleryNavigation();
-                
-                if (images.length > 1) {
-                    prevBtn.style.display = 'flex';
-                    nextBtn.style.display = 'flex';
-                    updateImageIndicator();
-                }
-                
-                console.log('🎉 Gallery setup complete');
-            }
+            // ПРОВЕРКА ЧЕРЕЗ 5 СЕКУНД
+            setTimeout(() => {
+                console.log('🔍 Status after 5 seconds:');
+                images.forEach((img, i) => {
+                    console.log(`Image ${i}: complete=${img.complete}, naturalWidth=${img.naturalWidth}`);
+                });
+            }, 5000);
 
         } catch (e) {
-            console.error('💥 Error in loadAllImages:', e);
-            noImageElement.style.display = 'flex';
-            noImageElement.innerHTML = `
-                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                    <rect x="3" y="3" width="18" height="18" rx="2"/>
-                    <circle cx="8.5" cy="8.5" r="2.5"/>
-                </svg>
-                <p>Ошибка загрузки</p>
-            `;
+            console.error('💥 Error:', e);
         }
+        
+        console.log('=== END loadAllImages ===');
     }
 
     // ==================== ПРЕЛОАДЕР ===================
