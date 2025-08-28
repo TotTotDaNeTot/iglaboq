@@ -91,7 +91,7 @@
       object-fit: contain;
       border-radius: 12px;
       box-shadow: none !important;
-      display: none;
+      display: block !important;
       position: absolute;
       top: 50%;
       left: 50%;
@@ -613,64 +613,39 @@
         noImageElement.style.display = 'none';
         
         try {
-            // ТАЙМАУТ НА ВСЮ ЗАГРУЗКУ - 10 СЕКУНД
-            const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('Timeout loading images')), 10000);
+            // ПРОСТО ЗАГРУЖАЕМ URLS БЕЗ ТАЙМАУТОВ
+            const imageUrls = await loadJournalImagesFromAPI();
+            
+            if (imageUrls.length === 0) {
+                noImageElement.style.display = 'flex';
+                noImageElement.innerHTML = `
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="2.5"/>
+                    </svg>
+                    <p>Изображения недоступны</p>
+                `;
+                return;
+            }
+
+            // ПРОСТО СОЗДАЕМ ИЗОБРАЖЕНИЯ БЕЗ СЛОЖНОЙ ЛОГИКИ
+            imageUrls.forEach((imageUrl, index) => {
+                const img = document.createElement('img');
+                img.className = 'gallery-image';
+                img.src = imageUrl;
+                img.alt = `Изображение ${index + 1}`;
+                img.loading = 'eager'; // Важно: eager вместо lazy
+                
+                galleryContainer.appendChild(img);
+                images.push(img);
+                
+                if (index === 0) {
+                    img.classList.add('active');
+                }
             });
-            
-            // Загружаем URLs с таймаутом
-            const imageUrls = await Promise.race([
-                loadJournalImagesFromAPI(),
-                timeoutPromise
-            ]);
-            
-            if (imageUrls.length === 0) throw new Error('No images');
-            
-            // СОЗДАЕМ ИЗОБРАЖЕНИЯ С ТАЙМАУТОМ
-            const imageLoadPromises = imageUrls.map((imageUrl, index) => {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.className = 'gallery-image';
-                    img.style.opacity = '0';
-                    
-                    // ТАЙМАУТ НА КАЖДОЕ ИЗОБРАЖЕНИЕ - 5 СЕКУНД
-                    const imgTimeout = setTimeout(() => {
-                        console.error(`Timeout loading image: ${imageUrl}`);
-                        img.onerror = null;
-                        img.onload = null;
-                        resolve(null);
-                    }, 5000);
-                    
-                    img.onload = () => {
-                        clearTimeout(imgTimeout);
-                        img.style.opacity = '1';
-                        resolve(img);
-                    };
-                    
-                    img.onerror = () => {
-                        clearTimeout(imgTimeout);
-                        console.error(`Error loading image: ${imageUrl}`);
-                        resolve(null);
-                    };
-                    
-                    img.src = imageUrl;
-                    img.alt = `Изображение ${index + 1}`;
-                    
-                    galleryContainer.appendChild(img);
-                    images.push(img);
-                    
-                    if (index === 0) {
-                        img.classList.add('active');
-                    }
-                });
-            });
-            
-            // Ждем загрузки всех изображений или таймаута
-            await Promise.all(imageLoadPromises);
-            
-            // УДАЛЯЕМ НЕЗАГРУЗИВШИЕСЯ ИЗОБРАЖЕНИЯ
-            images = images.filter(img => img.complete && img.naturalWidth > 0);
-            
+
+            // НАСТРОЙКА ГАЛЕРЕИ СРАЗУ
             if (images.length > 0) {
                 setupGalleryNavigation();
                 if (images.length > 1) {
@@ -678,30 +653,19 @@
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
                 }
-            } else {
-                throw new Error('All images failed to load');
             }
-            
+
         } catch (e) {
-            console.error('Image loading failed:', e);
-            // ПОКАЗЫВАЕМ ЗАГЛУШКУ
+            console.error('Error loading images:', e);
             noImageElement.style.display = 'flex';
             noImageElement.innerHTML = `
-                <div style="text-align: center; color: #ff5555;">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
-                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
-                        <rect x="3" y="3" width="18" height="18" rx="2"/>
-                        <circle cx="8.5" cy="8.5" r="2.5"/>
-                    </svg>
-                    <p>Ошибка загрузки изображений</p>
-                    <button onclick="location.reload()" style="margin-top: 10px; padding: 10px; background: #ff5555; color: white; border: none; border-radius: 5px;">
-                        Попробовать снова
-                    </button>
-                </div>
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="2.5"/>
+                </svg>
+                <p>Ошибка загрузки</p>
             `;
-        } finally {
-            // ВСЕГДА ВЫКЛЮЧАЕМ ПРЕЛОАДЕР ДАЖЕ ПРИ ОШИБКЕ
-            setLoading(false);
         }
     }
 
