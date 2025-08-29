@@ -538,19 +538,23 @@
     // Функция для загрузки presigned URLs с API
     async function loadJournalImagesFromAPI() {
         try {
-            console.log('📡 Запрос presigned URLs...');
             const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
-            
-            if (!response.ok) throw new Error('API error');
-            
             const data = await response.json();
-            console.log('✅ URLs получены');
             
-            // ВОЗВРАЩАЕМ ПРЯМЫЕ ССЫЛКИ НА MINIO БЕЗ ПРОКСИ!
-            return data.images;
+            // ПРЕОБРАЗУЕМ URL ДЛЯ БЫСТРОГО ПРОКСИ
+            return data.images.map(url => {
+                // Из: https://successively-composed-chigger.cloudpub.ru/journals/journal_3/filename.png
+                // В: https://uncertainly-kind-nuthatch.cloudpub.ru/fast_image/journal_3/filename.png
+                
+                if (url.includes('successively-composed-chigger.cloudpub.ru')) {
+                    const path = url.split('journals/')[1];
+                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/fast_image/${path}`;
+                }
+                return url;
+            });
                 
         } catch (error) {
-            console.error('❌ Ошибка:', error);
+            console.error('Error:', error);
             return [];
         }
     }
