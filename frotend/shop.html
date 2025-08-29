@@ -584,8 +584,17 @@
             }
             
             const data = await response.json();
-            console.log('Presigned URLs received:', data.images);
-            return data.images;
+            
+            // ПРЕОБРАЗУЕМ URL ДЛЯ ПРОКСИ
+            return data.images.map(url => {
+                // Из: https://successively-composed-chigger.cloudpub.ru/journals/journal_3/filename.png
+                // В: https://uncertainly-kind-nuthatch.cloudpub.ru/image_proxy/journal_3/filename.png
+                if (url.includes('successively-composed-chigger.cloudpub.ru')) {
+                    const path = url.split('journals/')[1];
+                    return `https://uncertainly-kind-nuthatch.cloudpub.ru/image_proxy/${path}`;
+                }
+                return url;
+            });
             
         } catch (error) {
             console.error('Error loading images from API:', error);
