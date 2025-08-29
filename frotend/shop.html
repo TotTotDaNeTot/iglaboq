@@ -633,85 +633,99 @@
         nextBtn.style.display = 'none';
         noImageElement.style.display = 'none';
         
-        // ДИАГНОСТИКА: добавляем отладочную информацию НА САМУ СТРАНИЦУ
-        const debugInfo = document.createElement('div');
-        debugInfo.style.position = 'fixed';
-        debugInfo.style.top = '10px';
-        debugInfo.style.left = '10px';
-        debugInfo.style.background = 'rgba(0,0,0,0.9)';
-        debugInfo.style.color = 'white';
-        debugInfo.style.padding = '10px';
-        debugInfo.style.zIndex = '10000';
-        debugInfo.style.fontSize = '12px';
-        debugInfo.style.borderRadius = '5px';
-        debugInfo.id = 'debug-info';
-        document.body.appendChild(debugInfo);
+        // СОЗДАЕМ ДИАГНОСТИЧЕСКОЕ ОКНО
+        const debugDiv = document.createElement('div');
+        debugDiv.style.position = 'fixed';
+        debugDiv.style.top = '10px';
+        debugDiv.style.left = '10px';
+        debugDiv.style.background = 'rgba(0,0,0,0.9)';
+        debugDiv.style.color = 'white';
+        debugDiv.style.padding = '15px';
+        debugDiv.style.zIndex = '10000';
+        debugDiv.style.fontSize = '14px';
+        debugDiv.style.borderRadius = '8px';
+        debugDiv.style.maxWidth = '80%';
+        debugDiv.style.maxHeight = '80%';
+        debugDiv.style.overflow = 'auto';
+        debugDiv.innerHTML = '<h3>🛠 ДИАГНОСТИКА ЗАГРУЗКИ</h3>';
+        document.body.appendChild(debugDiv);
         
-        function updateDebugInfo(message) {
-            debugInfo.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+        function logDebug(message) {
+            debugDiv.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
             console.log(message);
+            debugDiv.scrollTop = debugDiv.scrollHeight;
         }
         
         try {
-            updateDebugInfo('🔄 Загрузка изображений...');
+            logDebug('🔄 Запуск loadAllImages...');
+            logDebug(`📖 Journal ID: ${journalId}`);
             
-            // Загружаем URLs через API
+            // 1. Загружаем URLs через API
+            logDebug('📡 Запрос к get_journal_images_presigned...');
             const imageUrls = await loadJournalImagesFromAPI();
-            updateDebugInfo(`📦 Получено URL: ${imageUrls.length}`);
+            logDebug(`✅ Получено URL: ${imageUrls.length}`);
             
             if (imageUrls.length === 0) {
-                updateDebugInfo('❌ Нет изображений');
+                logDebug('❌ Нет изображений в ответе API');
                 noImageElement.style.display = 'flex';
                 return;
             }
 
-            updateDebugInfo(`🔗 Пример URL: ${imageUrls[0].substring(0, 80)}...`);
+            // 2. Показываем все полученные URL
+            imageUrls.forEach((url, index) => {
+                logDebug(`🔗 URL ${index}: ${url}`);
+            });
             
-            // КНОПКА ТЕСТА: открыть изображение вручную
+            // 3. Тест: открываем первый URL вручную
             const testBtn = document.createElement('button');
-            testBtn.textContent = 'Тест: Открыть изображение';
+            testBtn.textContent = '🧪 Тест: Открыть 1-е изображение';
             testBtn.style.position = 'fixed';
-            testBtn.style.top = '50px';
+            testBtn.style.top = '120px';
             testBtn.style.left = '10px';
-            testBtn.style.zIndex = '10000';
-            testBtn.style.padding = '8px';
+            testBtn.style.zIndex = '10001';
+            testBtn.style.padding = '10px';
             testBtn.style.background = '#007bff';
             testBtn.style.color = 'white';
             testBtn.style.border = 'none';
-            testBtn.style.borderRadius = '3px';
-            testBtn.style.fontSize = '11px';
-            testBtn.onclick = () => window.open(imageUrls[0], '_blank');
+            testBtn.style.borderRadius = '5px';
+            testBtn.style.fontSize = '12px';
+            testBtn.onclick = () => {
+                logDebug('🧪 Открываю изображение в новой вкладке...');
+                window.open(imageUrls[0], '_blank');
+            };
             document.body.appendChild(testBtn);
 
-            // ПРОСТОЙ СПОСОБ: создаем изображения
+            // 4. Создаем изображения с полной отладкой
+            logDebug('🖼️ Создаем элементы изображений...');
+            
             imageUrls.forEach((imageUrl, index) => {
-                updateDebugInfo(`🖼️ Создаем изображение ${index + 1}`);
-                
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // ДЛЯ ОТЛАДКИ: добавляем рамки
-                img.style.border = '3px solid red';
+                // ВИЗУАЛЬНАЯ ОТЛАДКА
+                img.style.border = '4px solid red';
                 img.style.boxSizing = 'border-box';
+                img.style.width = '100%';
+                img.style.height = 'auto';
+                img.style.display = 'block';
                 
                 img.onload = () => {
-                    updateDebugInfo(`✅ Изобр. ${index + 1} ЗАГРУЖЕНО!`);
-                    img.style.border = '3px solid green';
+                    logDebug(`✅ Изобр. ${index + 1} ЗАГРУЖЕНО!`);
+                    img.style.border = '4px solid green';
                     img.style.opacity = '1';
                 };
                 
                 img.onerror = (e) => {
-                    updateDebugInfo(`❌ Ошибка загрузки ${index + 1}: ${e}`);
-                    img.style.border = '3px solid red';
+                    logDebug(`❌ Ошибка загрузки ${index + 1}: ${e}`);
+                    img.style.border = '4px solid orange';
                 };
                 
                 galleryContainer.appendChild(img);
                 images.push(img);
                 
-                // Первое изображение сразу видимо
                 if (index === 0) {
                     img.style.opacity = '1';
                 } else {
@@ -722,9 +736,9 @@
                 }
             });
 
-            updateDebugInfo('🎉 Все изображения созданы');
+            logDebug('🎉 Все изображения созданы');
             
-            // Настраиваем галерею
+            // 5. Настраиваем галерею
             if (images.length > 0) {
                 setupGalleryNavigation();
                 if (images.length > 1) {
@@ -732,10 +746,11 @@
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
                 }
+                logDebug('📱 Галерея настроена');
             }
 
         } catch (e) {
-            updateDebugInfo(`💥 Ошибка: ${e.message}`);
+            logDebug(`💥 Критическая ошибка: ${e.message}`);
             noImageElement.style.display = 'flex';
         }
     }
