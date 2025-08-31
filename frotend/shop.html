@@ -84,27 +84,23 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      overflow: hidden;
     }
     .gallery-image {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-        border-radius: 12px;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-        pointer-events: none;
-        -webkit-user-drag: none;
-        display: none; /* Сначала скрыты */
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+      box-shadow: none !important;
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      -webkit-user-drag: none;
+      pointer-events: none;
     }
     .gallery-image.active {
-        display: block; /* Показываем активное */
-        opacity: 1; /* Делаем видимым */
-        z-index: 1; /* Поверх остальных */
+      display: block;
     }
     .gallery-nav {
       position: absolute;
@@ -385,14 +381,14 @@
 </head>
 <body>
   <!-- Прелоадер -->
-  <!-- <div class="preloader" id="preloader">
+  <div class="preloader" id="preloader">
     <div class="planet-loader">
       <div class="planet"></div>
       <div class="ring"></div>
       <div class="ring"></div>
       <div class="ring"></div>
     </div>
-  </div> -->
+  </div>
 
   <div class="stars-container" id="stars-container"></div>
 
@@ -489,43 +485,74 @@
   </div>
 
   <script>
-    console.log('=== START SCRIPT ===');
+    // Инициализация WebApp
+    if (window.Telegram?.WebApp) {
+        Telegram.WebApp.expand();
+        Telegram.WebApp.MainButton.hide();
+        
+        const user = Telegram.WebApp.initDataUnsafe?.user;
+        if (user) {
+            window.userId = user.id;
+            window.chatId = Telegram.WebApp.initDataUnsafe?.chat?.id || user.id;
+        }
+    }
 
-    // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ВСЕХ ОШИБОК
-    window.addEventListener('error', function(e) {
-        console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', e.error);
-    });
-
-    // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal') || '3';
-    console.log('📝 Journal ID:', journalId);
-
+    const journalId = params.get('journal');
     let currentImageIndex = 0;
     let images = [];
+    let isAnimating = false;
+    const supportedFormats = ['.jpg', '.jpeg', '.png', '.webp'];
+    let quantity = 1;
+    let basePrice = parseFloat(params.get('price')) || 0;
+    
+    // Добавьте в самое начало скрипта
+    let isPageRefreshed = false;
+    let availableQuantity = 0;
+
+    // При загрузке страницы всегда обновляем данные
+    window.addEventListener('load', function() {
+        if (!isPageRefreshed) {
+            loadJournalData();
+            isPageRefreshed = true;
+        }
+    });
+
+    // При явном обновлении страницы (F5/Ctrl+R)
+    window.addEventListener('beforeunload', function() {
+        isPageRefreshed = false;
+    });
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
-        console.log('⚙️ Настройка навигации галереи');
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
+        const galleryWrapper = document.getElementById('gallery-wrapper');
         
-        if (!prevBtn || !nextBtn) return;
+        // УДАЛЯЕМ старые обработчики чтобы избежать дублирования
+        prevBtn.onclick = null;
+        nextBtn.onclick = null;
+        galleryWrapper.ontouchstart = null;
+        galleryWrapper.ontouchend = null;
         
-        prevBtn.onclick = () => {
-            if (images.length <= 1) return;
-            images.forEach(img => img.style.opacity = '0');
-            currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-            images[currentImageIndex].style.opacity = '1';
-            updateImageIndicator();
+        prevBtn.onclick = () => switchImage(-1);
+        nextBtn.onclick = () => switchImage(1);
+        
+        let touchStartX = 0;
+        
+        galleryWrapper.ontouchstart = (e) => {
+            touchStartX = e.touches[0].clientX;
         };
         
-        nextBtn.onclick = () => {
-            if (images.length <= 1) return;
-            images.forEach(img => img.style.opacity = '0');
-            currentImageIndex = (currentImageIndex + 1) % images.length;
-            images[currentImageIndex].style.opacity = '1';
-            updateImageIndicator();
+        galleryWrapper.ontouchend = (e) => {
+            if (isAnimating) return;
+            
+            const touchEndX = e.changedTouches[0].clientX;
+            const diffX = touchStartX - touchEndX;
+            
+            if (Math.abs(diffX) > 50) {
+                diffX > 0 ? switchImage(1) : switchImage(-1);
+            }
         };
     }
 
@@ -536,22 +563,43 @@
         }
     }
 
-    // Функция для загрузки presigned URLs с API
+    // Обновите функцию switchImage:
+    function switchImage(direction) {
+        if (images.length <= 1 || isAnimating) return;
+        
+        isAnimating = true;
+        
+        const currentImage = images[currentImageIndex];
+        currentImage.style.opacity = '0';
+        currentImage.classList.remove('active');
+        
+        // Вычисляем новый индекс с проверкой границ
+        let newIndex = currentImageIndex + direction;
+        if (newIndex < 0) newIndex = images.length - 1;
+        if (newIndex >= images.length) newIndex = 0;
+        
+        currentImageIndex = newIndex;
+        
+        const nextImage = images[currentImageIndex];
+        nextImage.classList.add('active');
+        
+        setTimeout(() => {
+            nextImage.style.opacity = '1';
+            updateImageIndicator();
+            isAnimating = false;
+        }, 300);
+    }
+
     async function loadJournalImagesFromAPI() {
         try {
             console.log('🔄 Загрузка изображений для журнала:', journalId);
             
-            const API_URL = `https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`;
-            console.log('🌐 Запрос к:', API_URL);
-            
-            const response = await fetch(API_URL);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
             const data = await response.json();
+            
             console.log('📦 Получены URL изображений:', data.images);
             
+            // ВОЗВРАЩАЕМ URL КАК ЕСТЬ - они уже быстрые!
             return data.images;
                 
         } catch (error) {
@@ -562,24 +610,17 @@
 
     // Основная функция загрузки изображений
     async function loadAllImages() {
-        console.log('🔄 Запуск loadAllImages...');
-        
         const galleryContainer = document.getElementById('gallery-images');
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
-        if (!galleryContainer) {
-            console.error('❌ Контейнер галереи не найден!');
-            return;
-        }
-        
-        // Очищаем
+        // Полностью очищаем
         galleryContainer.innerHTML = '';
         images = [];
-        if (prevBtn) prevBtn.style.display = 'none';
-        if (nextBtn) nextBtn.style.display = 'none';
-        if (noImageElement) noImageElement.style.display = 'none';
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        noImageElement.style.display = 'none';
         
         try {
             // Загружаем URLs через API
@@ -587,17 +628,17 @@
             console.log('📦 URL для загрузки:', imageUrls);
             
             if (imageUrls.length === 0) {
-                if (noImageElement) noImageElement.style.display = 'flex';
+                noImageElement.style.display = 'flex';
+                noImageElement.innerHTML = `
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="2.5"/>
+                    </svg>
+                    <p>Изображения недоступны</p>
+                `;
                 return;
             }
-
-            // Создаем контейнер для правильного позиционирования
-            const imageWrapper = document.createElement('div');
-            imageWrapper.style.position = 'relative';
-            imageWrapper.style.width = '100%';
-            imageWrapper.style.height = '400px'; // ФИКСИРОВАННАЯ ВЫСОТА
-            imageWrapper.style.overflow = 'hidden'; // СКРЫВАЕМ ВЫПАДАЮЩЕЕ
-            galleryContainer.appendChild(imageWrapper);
 
             // Создаем изображения
             imageUrls.forEach((imageUrl, index) => {
@@ -605,100 +646,465 @@
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
+                img.style.opacity = '0';
                 img.src = imageUrl;
                 img.alt = `Изображение ${index + 1}`;
-                img.loading = 'eager';
-                
-                // Стили для изображений - ИСПРАВЛЕНО
-                img.style.width = '100%';
-                img.style.height = '100%'; // ЗАНИМАЕТ ВСЮ ВЫСОТУ КОНТЕЙНЕРА
-                img.style.borderRadius = '10px';
-                img.style.objectFit = 'cover'; // СОХРАНЯЕТ ПРОПОРЦИИ
-                img.style.display = 'block';
                 
                 img.onload = () => {
                     console.log('✅ Изображение загружено');
-                    img.style.opacity = '1';
+                    galleryContainer.appendChild(img);
+                    images.push(img);
+                    
+                    if (images.length === 1) {
+                        img.classList.add('active');
+                        img.style.opacity = '1';
+                        setupGalleryNavigation();
+                    }
+                    
+                    if (images.length > 1) {
+                        prevBtn.style.display = 'flex';
+                        nextBtn.style.display = 'flex';
+                        updateImageIndicator();
+                    }
                 };
                 
-                img.onerror = (e) => {
-                    console.error('❌ Ошибка загрузки изображения:', e);
+                img.onerror = () => {
+                    console.error('❌ Ошибка загрузки изображения:', imageUrl);
                 };
-                
-                imageWrapper.appendChild(img);
-                images.push(img);
-                
-                // ВСЕ изображения абсолютно позиционированы
-                img.style.position = 'absolute';
-                img.style.top = '0';
-                img.style.left = '0';
-                
-                if (index === 0) {
-                    img.style.opacity = '1';
-                    img.style.zIndex = '2';
-                } else {
-                    img.style.opacity = '0';
-                    img.style.zIndex = '1';
-                }
             });
 
-            // Настраиваем галерею
-            if (images.length > 0) {
-                setupGalleryNavigation();
-                if (images.length > 1 && prevBtn && nextBtn) {
-                    prevBtn.style.display = 'flex';
-                    nextBtn.style.display = 'flex';
-                    updateImageIndicator();
-                }
-            }
-
         } catch (e) {
-            console.error('💥 Ошибка в loadAllImages:', e);
-            if (noImageElement) noImageElement.style.display = 'flex';
+            console.error('💥 Ошибка загрузки изображений:', e);
+            noImageElement.style.display = 'flex';
+            noImageElement.innerHTML = `
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                    <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                    <rect x="3" y="3" width="18" height="18" rx="2"/>
+                    <circle cx="8.5" cy="8.5" r="2.5"/>
+                </svg>
+                <p>Ошибка загрузки</p>
+            `;
         }
     }
 
-    // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
+
+    // ==================== ПРЕЛОАДЕР ===================
+    function setLoading(loading) {
+        const preloader = document.getElementById('preloader');
+        preloader.style.display = loading ? 'flex' : 'none';
+    }
+
+    // ==================== ДАННЫЕ ЖУРНАЛА ====================
     async function loadJournalData() {
         try {
-            console.log('📦 Загрузка данных журнала...');
+            setLoading(true); // Включаем прелоадер (планета)
+            
+            // Загружаем данные журнала
+            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal?id=${journalId}&t=${Date.now()}`);
+            
+            if (!response.ok) throw new Error('Ошибка загрузки данных');
+            
+            const journalData = await response.json();
+            
+            // Обновляем данные
+            availableQuantity = parseInt(journalData.quantity) || 0;
+            basePrice = parseFloat(journalData.price) || 0;
+            
+            document.getElementById('journal-title').textContent = journalData.title || "Журнал";
+            document.getElementById('journal-year').textContent = `Год выпуска: ${journalData.year || "—"}`;
+            document.getElementById('journal-description').textContent = journalData.description || "Описание отсутствует";
+            
+            updateQuantityDisplay();
+            updatePrice();
+            
+            // ТЕПЕРЬ загружаем изображения ИЗ MINIO
             await loadAllImages();
-            console.log('✅ Данные журнала загружены');
+            
         } catch (error) {
-            console.error('❌ Ошибка загрузки данных:', error);
+            console.error('Ошибка загрузки данных:', error);
+            availableQuantity = 0;
+            updateQuantityDisplay();
+            
+            // Все равно пытаемся загрузить изображения
+            try {
+                await loadAllImages();
+            } catch (e) {
+                console.error('Ошибка загрузки изображений:', e);
+            }
+        } finally {
+            setLoading(false); // Выключаем прелоадер (планета исчезает)
+        }
+    }
+
+    function updateQuantityDisplay() {
+        const quantityElement = document.getElementById('journal-quantity');
+        const buyBtn = document.getElementById('buy-btn');
+        
+        if (availableQuantity > 0) {
+            quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
+            quantityElement.style.color = '';
+            buyBtn.disabled = false;
+            buyBtn.style.opacity = '1';
+        } else {
+            quantityElement.textContent = "Нет в наличии";
+            quantityElement.style.color = '#ff5555';
+            buyBtn.disabled = true;
+            buyBtn.style.opacity = '0.5';
+        }
+        
+        // Обновляем максимальное количество для выбора
+        const quantityIncreaseBtn = document.getElementById('quantity-increase');
+        if (quantity > availableQuantity) {
+            quantity = Math.max(1, availableQuantity);
+            document.getElementById('quantity').textContent = quantity;
+            updatePrice();
+        }
+        quantityIncreaseBtn.disabled = quantity >= availableQuantity;
+    }
+
+    function updatePrice() {
+        const totalPrice = basePrice * quantity;
+        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
+    }
+
+
+    // ==================== СТРАНИЦЫ ====================
+    function goToOrderPage() {
+        document.getElementById('product-page').classList.remove('active');
+        document.getElementById('order-page').classList.add('active');
+        document.getElementById('stars-container').style.display = 'none';
+        
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton.setText("Оформить заказ").show().onClick(processOrder);
+        }
+    }
+
+    function goToProductPage() {
+        document.getElementById('order-page').classList.remove('active');
+        document.getElementById('product-page').classList.add('active');
+        document.getElementById('stars-container').style.display = 'block';
+        
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton.setText("Купить сейчас").show().onClick(goToOrderPage);
+        }
+    }
+
+    // ==================== ОБРАБОТКА ФИО ====================
+    function setupFullNameHandling() {
+        const fullnameInput = document.getElementById('fullname');
+        const errorElement = document.getElementById('fullname-error');
+        
+        fullnameInput.addEventListener('focus', function() {
+            if (this.value === '') this.value = '';
+        });
+
+        fullnameInput.addEventListener('keydown', function(e) {
+            const cursorPos = this.selectionStart;
+            const currentValue = this.value;
+            const parts = currentValue.split('|').map(part => part.trim());
+            
+            if (e.key === 'Backspace' || e.key === 'Delete') {
+                if (e.key === 'Backspace' && cursorPos > 2 && currentValue.substr(cursorPos-3, 3) === ' | ') {
+                    this.value = currentValue.substring(0, cursorPos-3) + currentValue.substring(cursorPos);
+                    this.setSelectionRange(cursorPos-3, cursorPos-3);
+                    e.preventDefault();
+                }
+                return;
+            }
+            
+            if (parts.length >= 3 && e.key === ' ') e.preventDefault();
+            
+            if (e.key === ' ' && parts.length < 3) {
+                setTimeout(() => {
+                    this.value = this.value + ' | ';
+                    this.setSelectionRange(this.value.length, this.value.length);
+                }, 0);
+                e.preventDefault();
+            }
+        });
+        
+        fullnameInput.addEventListener('input', function(e) {
+            if (e.data === '|') {
+                this.value = this.value.replace(/\|/g, '');
+                return;
+            }
+            
+            const parts = this.value.split('|').map(part => {
+                const trimmed = part.trim();
+                return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+            });
+            
+            this.value = parts.join(' | ');
+            if (parts.length > 3) this.value = parts.slice(0, 3).join(' | ');
+        });
+        
+        fullnameInput.addEventListener('blur', validateFullName);
+        document.getElementById('order-form').addEventListener('submit', function(e) {
+            if (!validateFullName()) {
+                e.preventDefault();
+                fullnameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        function validateFullName() {
+            const value = fullnameInput.value.trim();
+            const parts = value.split('|').map(part => part.trim());
+            
+            errorElement.style.display = 'none';
+            fullnameInput.classList.remove('invalid');
+            
+            if (!value) {
+                errorElement.textContent = 'Поле ФИО обязательно для заполнения';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            if (parts.length !== 3 || parts.some(part => !part)) {
+                errorElement.textContent = 'Введите ФИО полностью в формате: Фамилия | Имя | Отчество';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            const nameRegex = /^[A-ZА-ЯЁ][a-zа-яё-]*$/;
+            if (!parts.every(part => nameRegex.test(part))) {
+                errorElement.textContent = 'Каждая часть должна начинаться с заглавной буквы и содержать только буквы и дефисы';
+                errorElement.style.display = 'block';
+                fullnameInput.classList.add('invalid');
+                return false;
+            }
+            
+            return true;
+        }
+    }
+
+    // ==================== ФОРМА ЗАКАЗА ====================
+    function validateForm() {
+        let isValid = true;
+        
+        // Валидация ФИО
+        const fullname = document.getElementById('fullname').value.trim();
+        const nameParts = fullname.split('|').map(p => p.trim());
+        if (nameParts.length !== 3 || !nameParts.every(p => /^[A-ZА-ЯЁ][a-zа-яё-]*$/.test(p))) {
+            document.getElementById('fullname-error').style.display = 'block';
+            isValid = false;
+        } else {
+            document.getElementById('fullname-error').style.display = 'none';
+        }
+        
+        // Валидация города
+        const city = document.getElementById('city').value.trim();
+        if (!city) {
+            document.getElementById('city-error').textContent = 'Введите город';
+            isValid = false;
+        } else {
+            document.getElementById('city-error').textContent = '';
+        }
+        
+        // Валидация почтового индекса
+        const postcode = document.getElementById('postcode').value.trim();
+        if (!/^\d{6}$/.test(postcode)) {
+            document.getElementById('postcode-error').style.display = 'block';
+            isValid = false;
+        } else {
+            document.getElementById('postcode-error').style.display = 'none';
+        }
+        
+        // Валидация телефона
+        const phone = document.getElementById('phone').value.trim();
+        if (!/^\+7\d{10}$/.test(phone)) {
+            document.getElementById('phone-error').style.display = 'block';
+            isValid = false;
+        } else {
+            document.getElementById('phone-error').style.display = 'none';
+        }
+        
+        // Валидация email
+        const email = document.getElementById('email').value.trim();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            document.getElementById('email-error').style.display = 'block';
+            isValid = false;
+        } else {
+            document.getElementById('email-error').style.display = 'none';
+        }
+        
+        return isValid;
+    }
+
+    async function processOrder(e) {
+        if (e) e.preventDefault();
+        
+        console.log("Начало обработки заказа"); // Отладочное сообщение
+        
+        if (!validateForm()) {
+            console.log("Валидация формы не пройдена");
+            const firstError = document.querySelector('.invalid');
+            if (firstError) {
+                firstError.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center' 
+                });
+            }
+            return;
+        }
+
+        const form = document.getElementById('order-form');
+        const submitBtn = document.getElementById('submit-btn');
+        const originalText = submitBtn.textContent;
+        
+        try {
+            // Показать состояние загрузки
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loader"></span> Оформляем...';
+            
+            if (window.Telegram?.WebApp?.MainButton) {
+                Telegram.WebApp.MainButton.showProgress();
+            }
+
+            console.log("Подготовка данных заказа...");
+            
+            // Подготовка данных заказа
+            const orderData = {
+                amount: basePrice * quantity,
+                journal_id: journalId,
+                quantity: quantity,
+                user_id: window.userId || null,
+                chat_id: window.chatId || null,
+                fullname: document.getElementById('fullname').value.trim(),
+                email: document.getElementById('email').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                city: document.getElementById('city').value.trim(),
+                postcode: document.getElementById('postcode').value.trim()
+            };
+
+            console.log("Отправка данных на сервер:", orderData);
+            
+            // Отправка запроса
+            const response = await fetch('https://bitingly-important-eagle.cloudpub.ru/create_payment', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(orderData)
+            });
+            
+            console.log("Ответ сервера получен. Статус:", response.status);
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Ошибка сервера: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            console.log("Результат:", result);
+            
+            if (!result.success) {
+                throw new Error(result.error || "Ошибка при создании платежа");
+            }
+
+            console.log("Перенаправление на страницу оплаты...");
+            
+            // Перенаправление на оплату
+            if (window.Telegram?.WebApp?.openLink) {
+                Telegram.WebApp.openLink(result.payment_url);
+            } else {
+                window.location.href = result.payment_url;
+            }
+            
+        } catch (error) {
+            console.error('Ошибка оформления заказа:', error);
+            
+            // Показать ошибку пользователю
+            const errorContainer = document.createElement('div');
+            errorContainer.className = 'error-message global-error';
+            errorContainer.textContent = error.message;
+            
+            // Удалить предыдущие ошибки
+            const oldErrors = form.querySelectorAll('.error-message');
+            oldErrors.forEach(el => el.remove());
+            
+            form.appendChild(errorContainer);
+            setTimeout(() => errorContainer.remove(), 5000);
+            
+        } finally {
+            console.log("Завершение обработки заказа");
+            // Восстановить кнопку
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            
+            if (window.Telegram?.WebApp?.MainButton) {
+                Telegram.WebApp.MainButton.hideProgress();
+            }
+        }
+    }
+
+    // ==================== ЗВЕЗДНОЕ НЕБО ====================
+    function createStars() {
+        const container = document.getElementById('stars-container');
+        for (let i = 0; i < 200; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.cssText = `
+                width: ${Math.random() * 3}px;
+                height: ${Math.random() * 3}px;
+                left: ${Math.random() * 100}%;
+                top: ${Math.random() * 100}%;
+                opacity: ${Math.random() * 0.7 + 0.3};
+                animation-duration: ${Math.random() * 4 + 2}s;
+            `;
+            container.appendChild(star);
         }
     }
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
-    function initializeApp() {
-        console.log('🎯 Инициализация приложения...');
+    document.addEventListener('DOMContentLoaded', () => {
+        createStars();
+        setLoading(true);
+        setupFullNameHandling();
         
-        try {
-            // Инициализация WebApp
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.expand();
-                Telegram.WebApp.MainButton.hide();
-                console.log('📱 Telegram WebApp инициализирован');
+        // ВАЖНО: Загружаем данные при каждой загрузке страницы
+        loadJournalData().then(() => {
+            updatePrice();
+        }).catch(() => {
+            setLoading(false);
+        });
+
+        // Остальной код без изменений...
+        document.getElementById('quantity-decrease').addEventListener('click', () => {
+            if (quantity > 1) {
+                quantity--;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
             }
-
-            // АВТОМАТИЧЕСКАЯ ЗАГРУЗКА
-            console.log('🚀 Запуск автоматической загрузки...');
-            loadJournalData();
-
-            console.log('✅ Приложение инициализировано');
-
-        } catch (error) {
-            console.error('💥 Ошибка инициализации:', error);
+        });
+        
+        document.getElementById('quantity-increase').addEventListener('click', () => {
+            if (quantity < availableQuantity) {
+                quantity++;
+                document.getElementById('quantity').textContent = quantity;
+                updatePrice();
+            } else {
+                alert(`Максимальное количество: ${availableQuantity}`);
+            }
+        });
+        
+        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
+        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
+        
+        document.getElementById('order-form').addEventListener('input', (e) => {
+            if (e.target.tagName === 'INPUT') validateForm();
+        });
+        
+        document.getElementById('order-form').addEventListener('submit', processOrder);
+        
+        if (window.Telegram?.WebApp) {
+            Telegram.WebApp.MainButton.setText("Купить сейчас")
+                .show()
+                .onClick(goToOrderPage);
         }
-    }
-
-    // ЗАПУСК ПРИ ЗАГРУЗКЕ ДОКУМЕНТА
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('📄 DOM полностью загружен');
-        setTimeout(initializeApp, 100);
     });
-
-
 </script>
 </body>
 </html>
