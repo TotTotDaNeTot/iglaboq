@@ -498,7 +498,7 @@
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal');
+    const journalId = params.get('journal') || '3'; // По умолчанию журнал 3
     let currentImageIndex = 0;
     let images = [];
     let isAnimating = false;
@@ -590,22 +590,21 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // ВИЗУАЛЬНАЯ ОТЛАДКА
-                img.style.border = '4px solid red';
-                img.style.boxSizing = 'border-box';
+                // Стили для правильного отображения
                 img.style.width = '100%';
                 img.style.height = 'auto';
                 img.style.display = 'block';
+                img.style.borderRadius = '10px';
                 
                 img.onload = () => {
                     console.log('✅ Изображение загружено');
-                    img.style.border = '4px solid green';
                     img.style.opacity = '1';
+                    img.style.transition = 'opacity 0.3s ease';
                 };
                 
                 img.onerror = (e) => {
                     console.error('❌ Ошибка загрузки:', e);
-                    img.style.border = '4px solid orange';
+                    img.style.opacity = '0.5';
                 };
                 
                 galleryContainer.appendChild(img);
@@ -708,12 +707,14 @@
             Telegram.WebApp.MainButton.hide();
         }
 
-        // Загружаем данные
-        loadJournalData().then(() => {
-            updatePrice();
-        }).catch(() => {
-            setLoading(false);
-        });
+        // Автоматически загружаем данные при загрузке страницы
+        setTimeout(() => {
+            loadJournalData().then(() => {
+                updatePrice();
+            }).catch(() => {
+                setLoading(false);
+            });
+        }, 100);
 
         // Обработчики событий
         document.getElementById('quantity-decrease').addEventListener('click', () => {
@@ -736,27 +737,7 @@
         document.getElementById('back-to-product').addEventListener('click', goToProductPage);
     });
 
-    // ДОБАВЛЯЕМ КНОПКУ РУЧНОГО ЗАПУСКА
-    const manualBtn = document.createElement('button');
-    manualBtn.textContent = '🚨 РУЧНОЙ ЗАПУСК';
-    manualBtn.style.position = 'fixed';
-    manualBtn.style.top = '10px';
-    manualBtn.style.right = '10px';
-    manualBtn.style.zIndex = '10000';
-    manualBtn.style.padding = '10px';
-    manualBtn.style.background = '#ff4444';
-    manualBtn.style.color = 'white';
-    manualBtn.style.border = 'none';
-    manualBtn.style.borderRadius = '5px';
-    manualBtn.style.fontSize = '12px';
-    
-    manualBtn.onclick = function() {
-        console.log('🔄 Ручной запуск loadAllImages...');
-        loadAllImages();
-    };
-    
-    document.body.appendChild(manualBtn);
-    console.log('✅ Кнопка ручного запуска добавлена');
+
 </script>
 </body>
 </html>
