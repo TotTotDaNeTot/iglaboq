@@ -595,7 +595,8 @@
             const imageWrapper = document.createElement('div');
             imageWrapper.style.position = 'relative';
             imageWrapper.style.width = '100%';
-            imageWrapper.style.minHeight = '400px';
+            imageWrapper.style.height = '400px'; // ФИКСИРОВАННАЯ ВЫСОТА
+            imageWrapper.style.overflow = 'hidden'; // СКРЫВАЕМ ВЫПАДАЮЩЕЕ
             galleryContainer.appendChild(imageWrapper);
 
             // Создаем изображения
@@ -608,11 +609,11 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // Стили для изображений
+                // Стили для изображений - ИСПРАВЛЕНО
                 img.style.width = '100%';
-                img.style.height = '400px';
+                img.style.height = '100%'; // ЗАНИМАЕТ ВСЮ ВЫСОТУ КОНТЕЙНЕРА
                 img.style.borderRadius = '10px';
-                img.style.objectFit = 'cover';
+                img.style.objectFit = 'cover'; // СОХРАНЯЕТ ПРОПОРЦИИ
                 img.style.display = 'block';
                 
                 img.onload = () => {
@@ -627,14 +628,17 @@
                 imageWrapper.appendChild(img);
                 images.push(img);
                 
+                // ВСЕ изображения абсолютно позиционированы
+                img.style.position = 'absolute';
+                img.style.top = '0';
+                img.style.left = '0';
+                
                 if (index === 0) {
                     img.style.opacity = '1';
-                    img.style.position = 'relative';
+                    img.style.zIndex = '2';
                 } else {
                     img.style.opacity = '0';
-                    img.style.position = 'absolute';
-                    img.style.top = '0';
-                    img.style.left = '0';
+                    img.style.zIndex = '1';
                 }
             });
 
