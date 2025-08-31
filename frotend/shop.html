@@ -498,7 +498,7 @@
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal') || '3'; // По умолчанию журнал 3
+    const journalId = params.get('journal');
     let currentImageIndex = 0;
     let images = [];
     let isAnimating = false;
@@ -580,6 +580,13 @@
                 return;
             }
 
+            // Создаем контейнер для правильного позиционирования
+            const imageWrapper = document.createElement('div');
+            imageWrapper.style.position = 'relative';
+            imageWrapper.style.width = '100%';
+            imageWrapper.style.minHeight = '400px';
+            galleryContainer.appendChild(imageWrapper);
+
             // Создаем изображения
             imageUrls.forEach((imageUrl, index) => {
                 console.log('🖼️ Создаем изображение:', imageUrl);
@@ -590,11 +597,12 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // Стили для правильного отображения
+                // Стили для предотвращения сползания
                 img.style.width = '100%';
                 img.style.height = 'auto';
-                img.style.display = 'block';
                 img.style.borderRadius = '10px';
+                img.style.objectFit = 'cover';
+                img.style.display = 'block';
                 
                 img.onload = () => {
                     console.log('✅ Изображение загружено');
@@ -607,11 +615,12 @@
                     img.style.opacity = '0.5';
                 };
                 
-                galleryContainer.appendChild(img);
+                imageWrapper.appendChild(img);
                 images.push(img);
                 
                 if (index === 0) {
                     img.style.opacity = '1';
+                    img.style.position = 'relative';
                 } else {
                     img.style.opacity = '0';
                     img.style.position = 'absolute';
@@ -707,7 +716,7 @@
             Telegram.WebApp.MainButton.hide();
         }
 
-        // Автоматически загружаем данные при загрузке страницы
+        // Автоматическая загрузка при открытии страницы
         setTimeout(() => {
             loadJournalData().then(() => {
                 updatePrice();
