@@ -599,32 +599,18 @@
                 
                 // Стили для предотвращения сползания
                 img.style.width = '100%';
-                img.style.height = '400px'; // ФИКСИРОВАННАЯ ВЫСОТА
+                img.style.height = '400px';
                 img.style.borderRadius = '10px';
                 img.style.objectFit = 'cover';
                 img.style.display = 'block';
-                img.style.border = '2px solid blue'; // Отладочная рамка
                 
-                // ОТЛАДКА ЗАГРУЗКИ
                 img.onload = () => {
-                    console.log('✅ Изображение загружено:', imageUrl);
+                    console.log('✅ Изображение загружено');
                     img.style.opacity = '1';
-                    img.style.border = '2px solid green';
-                    img.style.transition = 'opacity 0.3s ease';
                 };
                 
                 img.onerror = (e) => {
-                    console.error('❌ Ошибка загрузки:', imageUrl, e);
-                    img.style.border = '2px solid red';
-                    img.style.opacity = '0.3';
-                    
-                    // Показываем сообщение об ошибке
-                    const errorText = document.createElement('div');
-                    errorText.textContent = 'Ошибка загрузки';
-                    errorText.style.color = 'red';
-                    errorText.style.textAlign = 'center';
-                    errorText.style.marginTop = '10px';
-                    img.parentNode.appendChild(errorText);
+                    console.error('❌ Ошибка загрузки:', e);
                 };
                 
                 imageWrapper.appendChild(img);
@@ -656,33 +642,6 @@
             noImageElement.style.display = 'flex';
         }
     }
-
-    // ДОБАВЬТЕ ЭТУ ФУНКЦИЮ ДЛЯ ПРОВЕРКИ
-    async function testImageUrls() {
-        try {
-            console.log('🧪 Тестируем API...');
-            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/3`);
-            const data = await response.json();
-            console.log('📊 Ответ API:', data);
-            
-            // Тестируем каждый URL
-            data.images.forEach(url => {
-                console.log('🔗 Тестируем URL:', url);
-                
-                // Быстрая проверка
-                const testImg = new Image();
-                testImg.onload = () => console.log('✅ URL рабочий:', url);
-                testImg.onerror = () => console.log('❌ URL нерабочий:', url);
-                testImg.src = url;
-            });
-            
-        } catch (error) {
-            console.error('❌ Ошибка теста API:', error);
-        }
-    }
-
-// ВЫЗОВИТЕ В КОНСОЛИ БРАУЗЕРА:
-// testImageUrls()
 
     // ==================== ПРЕЛОАДЕР ===================
     function setLoading(loading) {
@@ -755,14 +714,12 @@
             Telegram.WebApp.MainButton.hide();
         }
 
-        // Автоматическая загрузка при открытии страницы
-        setTimeout(() => {
-            loadJournalData().then(() => {
-                updatePrice();
-            }).catch(() => {
-                setLoading(false);
-            });
-        }, 100);
+        // АВТОМАТИЧЕСКАЯ ЗАГРУЗКА - БЕЗ КНОПКИ
+        loadJournalData().then(() => {
+            updatePrice();
+        }).catch(() => {
+            setLoading(false);
+        });
 
         // Обработчики событий
         document.getElementById('quantity-decrease').addEventListener('click', () => {
@@ -784,6 +741,8 @@
         document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
         document.getElementById('back-to-product').addEventListener('click', goToProductPage);
     });
+
+    // КНОПКУ РУЧНОГО ЗАПУСКА УБРАЛ - ВСЁ АВТОМАТИЧЕСКИ
 
 
 </script>
