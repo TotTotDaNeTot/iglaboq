@@ -491,14 +491,21 @@
   <script>
     console.log('=== START SCRIPT ===');
 
-    // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ОШИБОК
+    // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ВСЕХ ОШИБОК
     window.addEventListener('error', function(e) {
-        console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', e.error);
+        console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', e.error, e.message, e.filename, e.lineno);
+    });
+
+    // Перехват промисов
+    window.addEventListener('unhandledrejection', function(e) {
+        console.error('💥 ОШИБКА PROMISE:', e.reason);
     });
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal');
+    const journalId = params.get('journal') || '3'; // Добавил значение по умолчанию
+    console.log('📝 Journal ID:', journalId);
+
     let currentImageIndex = 0;
     let images = [];
     let isAnimating = false;
@@ -508,8 +515,14 @@
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
+        console.log('⚙️ Настройка навигации галереи');
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
+        
+        if (!prevBtn || !nextBtn) {
+            console.error('❌ Кнопки навигации не найдены!');
+            return;
+        }
         
         prevBtn.onclick = () => {
             if (images.length <= 1) return;
@@ -540,12 +553,17 @@
         try {
             console.log('🔄 Загрузка изображений для журнала:', journalId);
             
-            const response = await fetch(`https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`);
-            const data = await response.json();
+            const API_URL = `https://uncertainly-kind-nuthatch.cloudpub.ru/get_journal_images_presigned/${journalId}`;
+            console.log('🌐 Запрос к:', API_URL);
             
+            const response = await fetch(API_URL);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
             console.log('📦 Получены URL изображений:', data.images);
             
-            // ВОЗВРАЩАЕМ URL КАК ЕСТЬ - они уже быстрые!
             return data.images;
                 
         } catch (error) {
@@ -563,12 +581,17 @@
         const nextBtn = document.getElementById('gallery-next');
         const noImageElement = document.getElementById('no-image');
         
+        if (!galleryContainer) {
+            console.error('❌ Контейнер галереи не найден!');
+            return;
+        }
+        
         // Очищаем
         galleryContainer.innerHTML = '';
         images = [];
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-        noImageElement.style.display = 'none';
+        if (prevBtn) prevBtn.style.display = 'none';
+        if (nextBtn) nextBtn.style.display = 'none';
+        if (noImageElement) noImageElement.style.display = 'none';
         
         try {
             // Загружаем URLs через API
@@ -576,7 +599,7 @@
             console.log('📦 URL для загрузки:', imageUrls);
             
             if (imageUrls.length === 0) {
-                noImageElement.style.display = 'flex';
+                if (noImageElement) noImageElement.style.display = 'flex';
                 return;
             }
 
@@ -605,12 +628,12 @@
                 img.style.display = 'block';
                 
                 img.onload = () => {
-                    console.log('✅ Изображение загружено');
+                    console.log('✅ Изображение загружено:', imageUrl);
                     img.style.opacity = '1';
                 };
                 
                 img.onerror = (e) => {
-                    console.error('❌ Ошибка загрузки:', e);
+                    console.error('❌ Ошибка загрузки изображения:', imageUrl, e);
                 };
                 
                 imageWrapper.appendChild(img);
@@ -630,7 +653,7 @@
             // Настраиваем галерею
             if (images.length > 0) {
                 setupGalleryNavigation();
-                if (images.length > 1) {
+                if (images.length > 1 && prevBtn && nextBtn) {
                     prevBtn.style.display = 'flex';
                     nextBtn.style.display = 'flex';
                     updateImageIndicator();
@@ -638,111 +661,112 @@
             }
 
         } catch (e) {
-            console.error('💥 Ошибка:', e);
-            noImageElement.style.display = 'flex';
+            console.error('💥 Ошибка в loadAllImages:', e);
+            if (noImageElement) noImageElement.style.display = 'flex';
         }
     }
 
     // ==================== ПРЕЛОАДЕР ===================
     function setLoading(loading) {
         const preloader = document.getElementById('preloader');
-        preloader.style.display = loading ? 'flex' : 'none';
+        if (preloader) {
+            preloader.style.display = loading ? 'flex' : 'none';
+        }
     }
 
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
     async function loadJournalData() {
         try {
+            console.log('📦 Загрузка данных журнала...');
             setLoading(true);
             await loadAllImages();
             setLoading(false);
+            console.log('✅ Данные журнала загружены');
         } catch (error) {
-            console.error('Error loading journal data:', error);
+            console.error('❌ Ошибка загрузки данных:', error);
             setLoading(false);
         }
-    }
-
-    function updateQuantityDisplay() {
-        const quantityElement = document.getElementById('journal-quantity');
-        const buyBtn = document.getElementById('buy-btn');
-        const quantityIncreaseBtn = document.getElementById('quantity-increase');
-        
-        if (availableQuantity > 0) {
-            quantityElement.textContent = `В наличии: ${availableQuantity} шт.`;
-            quantityElement.style.color = '';
-            buyBtn.disabled = false;
-            buyBtn.style.opacity = '1';
-        } else {
-            quantityElement.textContent = "Нет в наличии";
-            quantityElement.style.color = '#ff5555';
-            buyBtn.disabled = true;
-            buyBtn.style.opacity = '0.5';
-        }
-        
-        if (quantity > availableQuantity) {
-            quantity = Math.max(1, availableQuantity);
-            document.getElementById('quantity').textContent = quantity;
-            updatePrice();
-        }
-        quantityIncreaseBtn.disabled = quantity >= availableQuantity;
-    }
-
-    function updatePrice() {
-        const totalPrice = basePrice * quantity;
-        document.getElementById('journal-price').textContent = `Цена: ${totalPrice.toFixed(2)}₽`;
-    }
-
-    // ==================== СТРАНИЦЫ ====================
-    function goToOrderPage() {
-        document.getElementById('product-page').classList.remove('active');
-        document.getElementById('order-page').classList.add('active');
-        document.getElementById('stars-container').style.display = 'none';
-    }
-
-    function goToProductPage() {
-        document.getElementById('order-page').classList.remove('active');
-        document.getElementById('product-page').classList.add('active');
-        document.getElementById('stars-container').style.display = 'block';
     }
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('📄 DOM загружен');
+    function initializeApp() {
+        console.log('🎯 Инициализация приложения...');
         
-        // Инициализация WebApp
-        if (window.Telegram?.WebApp) {
-            Telegram.WebApp.expand();
-            Telegram.WebApp.MainButton.hide();
+        try {
+            // Инициализация WebApp
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.expand();
+                Telegram.WebApp.MainButton.hide();
+                console.log('📱 Telegram WebApp инициализирован');
+            }
+
+            // АВТОМАТИЧЕСКАЯ ЗАГРУЗКА
+            console.log('🚀 Запуск автоматической загрузки...');
+            loadJournalData();
+
+            // Обработчики событий
+            const quantityDecrease = document.getElementById('quantity-decrease');
+            const quantityIncrease = document.getElementById('quantity-increase');
+            const buyBtn = document.getElementById('buy-btn');
+            const backBtn = document.getElementById('back-to-product');
+
+            if (quantityDecrease) {
+                quantityDecrease.addEventListener('click', () => {
+                    if (quantity > 1) {
+                        quantity--;
+                        document.getElementById('quantity').textContent = quantity;
+                    }
+                });
+            }
+
+            if (quantityIncrease) {
+                quantityIncrease.addEventListener('click', () => {
+                    quantity++;
+                    document.getElementById('quantity').textContent = quantity;
+                });
+            }
+
+            if (buyBtn) {
+                buyBtn.addEventListener('click', goToOrderPage);
+            }
+
+            if (backBtn) {
+                backBtn.addEventListener('click', goToProductPage);
+            }
+
+            console.log('✅ Приложение инициализировано');
+
+        } catch (error) {
+            console.error('💥 Ошибка инициализации:', error);
         }
+    }
 
-        // АВТОМАТИЧЕСКАЯ ЗАГРУЗКА - БЕЗ КНОПКИ
-        loadJournalData().then(() => {
-            updatePrice();
-        }).catch(() => {
-            setLoading(false);
-        });
-
-        // Обработчики событий
-        document.getElementById('quantity-decrease').addEventListener('click', () => {
-            if (quantity > 1) {
-                quantity--;
-                document.getElementById('quantity').textContent = quantity;
-                updatePrice();
-            }
-        });
-        
-        document.getElementById('quantity-increase').addEventListener('click', () => {
-            if (quantity < availableQuantity) {
-                quantity++;
-                document.getElementById('quantity').textContent = quantity;
-                updatePrice();
-            }
-        });
-        
-        document.getElementById('buy-btn').addEventListener('click', goToOrderPage);
-        document.getElementById('back-to-product').addEventListener('click', goToProductPage);
+    // ЗАПУСК ПРИ ЗАГРУЗКЕ ДОКУМЕНТА
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📄 DOM полностью загружен');
+        setTimeout(initializeApp, 100); // Небольшая задержка для полной загрузки
     });
 
-    // КНОПКУ РУЧНОГО ЗАПУСКА УБРАЛ - ВСЁ АВТОМАТИЧЕСКИ
+    // Функции для страниц
+    function goToOrderPage() {
+        const productPage = document.getElementById('product-page');
+        const orderPage = document.getElementById('order-page');
+        const stars = document.getElementById('stars-container');
+        
+        if (productPage) productPage.classList.remove('active');
+        if (orderPage) orderPage.classList.add('active');
+        if (stars) stars.style.display = 'none';
+    }
+
+    function goToProductPage() {
+        const productPage = document.getElementById('product-page');
+        const orderPage = document.getElementById('order-page');
+        const stars = document.getElementById('stars-container');
+        
+        if (orderPage) orderPage.classList.remove('active');
+        if (productPage) productPage.classList.add('active');
+        if (stars) stars.style.display = 'block';
+    }
 
 
 </script>
