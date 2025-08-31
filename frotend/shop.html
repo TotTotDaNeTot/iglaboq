@@ -84,6 +84,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      overflow: hidden;
     }
     .gallery-image {
       max-width: 100%;
@@ -590,6 +591,7 @@
         }, 300);
     }
 
+    // ==================== ЗАГРУЗКА ИЗОБРАЖЕНИЙ С MINIO ====================
     async function loadJournalImagesFromAPI() {
         try {
             console.log('🔄 Загрузка изображений для журнала:', journalId);
@@ -640,38 +642,75 @@
                 return;
             }
 
-            // Создаем изображения
-            imageUrls.forEach((imageUrl, index) => {
+            const loadedImages = []; // Для отслеживания уже загруженных изображений
+
+            // Создаем изображения с проверкой дубликатов
+            for (const imageUrl of imageUrls) {
                 console.log('🖼️ Создаем изображение:', imageUrl);
+                
+                // Пропускаем дубликаты
+                if (loadedImages.includes(imageUrl)) {
+                    console.log('⏭️ Пропускаем дубликат:', imageUrl);
+                    continue;
+                }
                 
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
                 img.src = imageUrl;
-                img.alt = `Изображение ${index + 1}`;
+                img.alt = `Изображение ${loadedImages.length + 1}`;
                 
-                img.onload = () => {
-                    console.log('✅ Изображение загружено');
-                    galleryContainer.appendChild(img);
-                    images.push(img);
+                // Ждем загрузки каждого изображения
+                await new Promise((resolve) => {
+                    img.onload = () => {
+                        console.log('✅ Изображение загружено');
+                        
+                        // ПРОВЕРКА ДУБЛИКАТОВ ПО РАЗМЕРАМ (как в старом коде)
+                        const isDuplicate = images.some(existingImg => 
+                            existingImg.naturalWidth === img.naturalWidth && 
+                            existingImg.naturalHeight === img.naturalHeight
+                        );
+                        
+                        if (!isDuplicate) {
+                            galleryContainer.appendChild(img);
+                            images.push(img);
+                            loadedImages.push(imageUrl);
+                            
+                            if (images.length === 1) {
+                                img.classList.add('active');
+                                img.style.opacity = '1';
+                                setupGalleryNavigation();
+                            }
+                            
+                            if (images.length > 1) {
+                                prevBtn.style.display = 'flex';
+                                nextBtn.style.display = 'flex';
+                                updateImageIndicator();
+                            }
+                        } else {
+                            console.log('⏭️ Пропускаем дубликат по размерам:', imageUrl);
+                        }
+                        resolve();
+                    };
                     
-                    if (images.length === 1) {
-                        img.classList.add('active');
-                        img.style.opacity = '1';
-                        setupGalleryNavigation();
-                    }
-                    
-                    if (images.length > 1) {
-                        prevBtn.style.display = 'flex';
-                        nextBtn.style.display = 'flex';
-                        updateImageIndicator();
-                    }
-                };
-                
-                img.onerror = () => {
-                    console.error('❌ Ошибка загрузки изображения:', imageUrl);
-                };
-            });
+                    img.onerror = () => {
+                        console.error('❌ Ошибка загрузки изображения:', imageUrl);
+                        resolve();
+                    };
+                });
+            }
+
+            if (images.length === 0) {
+                noImageElement.style.display = 'flex';
+                noImageElement.innerHTML = `
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#ff5555">
+                        <path d="M3 16L10 9L13 12L16 9L21 16"/>
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <circle cx="8.5" cy="8.5" r="2.5"/>
+                    </svg>
+                    <p>Нет доступных изображений</p>
+                `;
+            }
 
         } catch (e) {
             console.error('💥 Ошибка загрузки изображений:', e);
