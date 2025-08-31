@@ -621,8 +621,11 @@
                 return;
             }
 
-            // Простая загрузка без сложных проверок
-            imageUrls.forEach((imageUrl, index) => {
+            // УДАЛЯЕМ ДУБЛИКАТЫ URL
+            const uniqueUrls = [...new Set(imageUrls)];
+            console.log('Уникальные URL:', uniqueUrls);
+
+            uniqueUrls.forEach((imageUrl, index) => {
                 const img = document.createElement('img');
                 img.className = 'gallery-image';
                 img.style.opacity = '0';
@@ -630,20 +633,34 @@
                 img.alt = `Изображение ${index + 1}`;
                 
                 img.onload = () => {
-                    galleryContainer.appendChild(img);
-                    images.push(img);
+                    // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ДУБЛИКАТОВ ПО РАЗМЕРАМ
+                    const isDuplicate = images.some(existingImg => 
+                        existingImg.naturalWidth === img.naturalWidth && 
+                        existingImg.naturalHeight === img.naturalHeight
+                    );
                     
-                    if (images.length === 1) {
-                        img.classList.add('active');
-                        img.style.opacity = '1';
-                        setupGalleryNavigation();
+                    if (!isDuplicate) {
+                        galleryContainer.appendChild(img);
+                        images.push(img);
+                        
+                        if (images.length === 1) {
+                            img.classList.add('active');
+                            img.style.opacity = '1';
+                            setupGalleryNavigation();
+                        }
+                        
+                        if (images.length > 1) {
+                            prevBtn.style.display = 'flex';
+                            nextBtn.style.display = 'flex';
+                            updateImageIndicator();
+                        }
+                    } else {
+                        console.log('Пропускаем дубликат по размерам');
                     }
-                    
-                    if (images.length > 1) {
-                        prevBtn.style.display = 'flex';
-                        nextBtn.style.display = 'flex';
-                        updateImageIndicator();
-                    }
+                };
+                
+                img.onerror = () => {
+                    console.error('Ошибка загрузки изображения');
                 };
             });
 
