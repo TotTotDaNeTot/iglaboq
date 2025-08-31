@@ -493,25 +493,16 @@
 
     // ГЛОБАЛЬНЫЙ ПЕРЕХВАТ ВСЕХ ОШИБОК
     window.addEventListener('error', function(e) {
-        console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', e.error, e.message, e.filename, e.lineno);
-    });
-
-    // Перехват промисов
-    window.addEventListener('unhandledrejection', function(e) {
-        console.error('💥 ОШИБКА PROMISE:', e.reason);
+        console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', e.error);
     });
 
     // ==================== ИНИЦИАЛИЗАЦИЯ ПЕРЕМЕННЫХ ====================
     const params = new URLSearchParams(window.location.search);
-    const journalId = params.get('journal') || '3'; // Добавил значение по умолчанию
+    const journalId = params.get('journal') || '3';
     console.log('📝 Journal ID:', journalId);
 
     let currentImageIndex = 0;
     let images = [];
-    let isAnimating = false;
-    let quantity = 1;
-    let basePrice = parseFloat(params.get('price')) || 0;
-    let availableQuantity = 0;
 
     // ==================== ГАЛЕРЕЯ ====================
     function setupGalleryNavigation() {
@@ -519,10 +510,7 @@
         const prevBtn = document.getElementById('gallery-prev');
         const nextBtn = document.getElementById('gallery-next');
         
-        if (!prevBtn || !nextBtn) {
-            console.error('❌ Кнопки навигации не найдены!');
-            return;
-        }
+        if (!prevBtn || !nextBtn) return;
         
         prevBtn.onclick = () => {
             if (images.length <= 1) return;
@@ -620,7 +608,7 @@
                 img.alt = `Изображение ${index + 1}`;
                 img.loading = 'eager';
                 
-                // Стили для предотвращения сползания
+                // Стили для изображений
                 img.style.width = '100%';
                 img.style.height = '400px';
                 img.style.borderRadius = '10px';
@@ -628,12 +616,12 @@
                 img.style.display = 'block';
                 
                 img.onload = () => {
-                    console.log('✅ Изображение загружено:', imageUrl);
+                    console.log('✅ Изображение загружено');
                     img.style.opacity = '1';
                 };
                 
                 img.onerror = (e) => {
-                    console.error('❌ Ошибка загрузки изображения:', imageUrl, e);
+                    console.error('❌ Ошибка загрузки изображения:', e);
                 };
                 
                 imageWrapper.appendChild(img);
@@ -666,25 +654,14 @@
         }
     }
 
-    // ==================== ПРЕЛОАДЕР ===================
-    function setLoading(loading) {
-        const preloader = document.getElementById('preloader');
-        if (preloader) {
-            preloader.style.display = loading ? 'flex' : 'none';
-        }
-    }
-
     // ФУНКЦИЯ ДЛЯ ЗАГРУЗКИ ДАННЫХ ЖУРНАЛА
     async function loadJournalData() {
         try {
             console.log('📦 Загрузка данных журнала...');
-            setLoading(true);
             await loadAllImages();
-            setLoading(false);
             console.log('✅ Данные журнала загружены');
         } catch (error) {
             console.error('❌ Ошибка загрузки данных:', error);
-            setLoading(false);
         }
     }
 
@@ -704,36 +681,6 @@
             console.log('🚀 Запуск автоматической загрузки...');
             loadJournalData();
 
-            // Обработчики событий
-            const quantityDecrease = document.getElementById('quantity-decrease');
-            const quantityIncrease = document.getElementById('quantity-increase');
-            const buyBtn = document.getElementById('buy-btn');
-            const backBtn = document.getElementById('back-to-product');
-
-            if (quantityDecrease) {
-                quantityDecrease.addEventListener('click', () => {
-                    if (quantity > 1) {
-                        quantity--;
-                        document.getElementById('quantity').textContent = quantity;
-                    }
-                });
-            }
-
-            if (quantityIncrease) {
-                quantityIncrease.addEventListener('click', () => {
-                    quantity++;
-                    document.getElementById('quantity').textContent = quantity;
-                });
-            }
-
-            if (buyBtn) {
-                buyBtn.addEventListener('click', goToOrderPage);
-            }
-
-            if (backBtn) {
-                backBtn.addEventListener('click', goToProductPage);
-            }
-
             console.log('✅ Приложение инициализировано');
 
         } catch (error) {
@@ -744,29 +691,8 @@
     // ЗАПУСК ПРИ ЗАГРУЗКЕ ДОКУМЕНТА
     document.addEventListener('DOMContentLoaded', function() {
         console.log('📄 DOM полностью загружен');
-        setTimeout(initializeApp, 100); // Небольшая задержка для полной загрузки
+        setTimeout(initializeApp, 100);
     });
-
-    // Функции для страниц
-    function goToOrderPage() {
-        const productPage = document.getElementById('product-page');
-        const orderPage = document.getElementById('order-page');
-        const stars = document.getElementById('stars-container');
-        
-        if (productPage) productPage.classList.remove('active');
-        if (orderPage) orderPage.classList.add('active');
-        if (stars) stars.style.display = 'none';
-    }
-
-    function goToProductPage() {
-        const productPage = document.getElementById('product-page');
-        const orderPage = document.getElementById('order-page');
-        const stars = document.getElementById('stars-container');
-        
-        if (orderPage) orderPage.classList.remove('active');
-        if (productPage) productPage.classList.add('active');
-        if (stars) stars.style.display = 'block';
-    }
 
 
 </script>
