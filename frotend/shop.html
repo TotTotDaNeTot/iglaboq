@@ -625,67 +625,64 @@
             const uniqueUrls = [...new Set(imageUrls)];
             console.log('Уникальные URL:', uniqueUrls);
 
-            for (const imageUrl of uniqueUrls) {
-                console.log('Загружаем:', imageUrl);
-                
-                const img = document.createElement('img');
-                img.className = 'gallery-image';
-                img.style.opacity = '0';
-                img.src = imageUrl;
-                img.alt = 'Изображение журнала';
-                
-                // Ждем загрузки или ошибки для каждого изображения
-                await new Promise((resolve) => {
+            // Загружаем все изображения параллельно
+            const loadPromises = uniqueUrls.map((imageUrl, index) => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.className = 'gallery-image';
+                    img.style.opacity = '0';
+                    img.src = imageUrl;
+                    img.alt = `Изображение ${index + 1}`;
+                    img.loading = 'eager'; // Важно: загружаем сразу!
+                    
                     img.onload = () => {
-                        console.log('✅ Успешно загружено:', imageUrl, 'Размер:', img.naturalWidth, 'x', img.naturalHeight);
+                        console.log('✅ Загружено:', imageUrl);
                         
-                        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ДУБЛИКАТОВ ПО РАЗМЕРАМ
-                        const isDuplicate = images.some(existingImg => 
-                            existingImg.naturalWidth === img.naturalWidth && 
-                            existingImg.naturalHeight === img.naturalHeight
-                        );
-                        
-                        if (!isDuplicate) {
-                            galleryContainer.appendChild(img);
-                            images.push(img);
+                        // Проверяем не битое ли изображение (размеры > 0)
+                        if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+                            // Проверка дубликатов по размерам
+                            const isDuplicate = images.some(existingImg => 
+                                existingImg.naturalWidth === img.naturalWidth && 
+                                existingImg.naturalHeight === img.naturalHeight
+                            );
                             
-                            if (images.length === 1) {
-                                img.classList.add('active');
-                                img.style.opacity = '1';
-                                setupGalleryNavigation();
+                            if (!isDuplicate) {
+                                galleryContainer.appendChild(img);
+                                images.push(img);
+                                
+                                if (images.length === 1) {
+                                    img.classList.add('active');
+                                    img.style.opacity = '1';
+                                }
                             }
-                            
-                            if (images.length > 1) {
-                                prevBtn.style.display = 'flex';
-                                nextBtn.style.display = 'flex';
-                                updateImageIndicator();
-                            }
-                        } else {
-                            console.log('⏭️ Пропускаем дубликат по размерам');
                         }
                         resolve();
                     };
                     
-                    img.onerror = (e) => {
-                        console.error('❌ Ошибка загрузки:', imageUrl, e);
-                        // Показываем сообщение об ошибке для этого изображения
-                        const errorDiv = document.createElement('div');
-                        errorDiv.style.color = 'red';
-                        errorDiv.style.textAlign = 'center';
-                        errorDiv.style.marginTop = '10px';
-                        errorDiv.textContent = `Ошибка загрузки: ${imageUrl.split('/').pop()}`;
-                        galleryContainer.appendChild(errorDiv);
+                    img.onerror = () => {
+                        console.error('❌ Ошибка загрузки:', imageUrl);
                         resolve();
                     };
                 });
-            }
+            });
 
-            if (images.length === 0) {
+            // Ждем загрузки всех изображений
+            await Promise.all(loadPromises);
+
+            // После загрузки всех изображений настраиваем галерею
+            if (images.length > 0) {
+                setupGalleryNavigation();
+                if (images.length > 1) {
+                    prevBtn.style.display = 'flex';
+                    nextBtn.style.display = 'flex';
+                    updateImageIndicator();
+                }
+            } else {
                 noImageElement.style.display = 'flex';
             }
 
         } catch (e) {
-            console.error('💥 Общая ошибка загрузки изображений:', e);
+            console.error('Ошибка загрузки изображений:', e);
             noImageElement.style.display = 'flex';
         }
     }
