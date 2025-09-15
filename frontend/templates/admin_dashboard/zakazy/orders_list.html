@@ -1,0 +1,230 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mt-4">{{ status_title }}</h2>
+    
+    <!-- Модальное окно для изменения трек-номера -->
+    <div class="modal fade" id="editTrackingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Изменить трек-номер заказа #<span id="modalOrderId"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="trackingForm">
+                        <div class="mb-3">
+                            <label for="newTrackingNumber" class="form-label">Новый трек-номер</label>
+                            <input type="text" class="form-control" id="newTrackingNumber" required>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-primary" id="saveTrackingBtn">Сохранить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Contact</th>
+                                    <th>Product ID</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Tracking</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders %}
+                                <tr data-order-id="{{ order.id }}">
+                                    <td>{{ order.id }}</td>
+                                    <td>{{ order.fullname }}</td>
+                                    <td>{{ order.phone }}<br>{{ order.email }}</td>
+                                    <td>{{ order.product_id }}</td>
+                                    <td>{{ order.amount }} {{ order.currency }}</td>
+                                    <td>{{ order.created_at.strftime('%d.%m.%Y') }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if order.status == 'paid' %}bg-primary
+                                            {% elif order.status == 'processing' %}bg-info
+                                            {% elif order.status == 'shipped' %}bg-success
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ order.status }}
+                                        </span>
+                                    </td>
+                                    <td class="tracking-number">
+                                        {% if order.track_number %}
+                                            {{ order.track_number }}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if order.status == 'paid' %}
+                                        <a href="{{ url_for('orders.update_order_status', order_id=order.id, new_status='processing') }}" 
+                                           class="btn btn-sm btn-primary">Start Processing</a>
+                                        {% elif order.status == 'processing' %}
+                                        <button class="btn btn-sm btn-success mark-shipped" 
+                                                data-order-id="{{ order.id }}"
+                                                type="button">
+                                            Mark as Shipped
+                                        </button>
+                                        {% elif order.status == 'shipped' %}
+                                        <button class="btn btn-sm btn-warning edit-tracking" 
+                                                data-order-id="{{ order.id }}"
+                                                data-current-tracking="{{ order.track_number or '' }}">
+                                            Изменить
+                                        </button>
+                                        {% endif %}
+                                        <a href="{{ url_for('orders.order_details', order_id=order.id) }}" 
+                                           class="btn btn-sm btn-outline-secondary">Details</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Проверяем наличие CSRF токена
+    const csrfMetaTag = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfMetaTag) {
+        console.error('CSRF token meta tag not found!');
+        alert('Ошибка безопасности. Пожалуйста, перезагрузите страницу.');
+        return;
+    }
+    const csrfToken = csrfMetaTag.content;
+
+    const editModal = new bootstrap.Modal(document.getElementById('editTrackingModal'));
+    let currentOrderId = null;
+
+    // Функция для показа уведомлений
+    function showAlert(message, type = 'success') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            const bsAlert = new bootstrap.Alert(alertDiv);
+            bsAlert.close();
+        }, 5000);
+    }
+
+    // Обработчик кнопки "Изменить"
+    document.querySelectorAll('.edit-tracking').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentOrderId = this.dataset.orderId;
+            const currentTracking = this.dataset.currentTracking || '';
+            
+            document.getElementById('modalOrderId').textContent = currentOrderId;
+            document.getElementById('newTrackingNumber').value = currentTracking;
+            editModal.show();
+        });
+    });
+
+    // Обработчик сохранения с подтверждением
+    document.getElementById('saveTrackingBtn').addEventListener('click', async function() {
+        const newTracking = document.getElementById('newTrackingNumber').value.trim();
+        if (!newTracking) {
+            showAlert('Пожалуйста, введите трек-номер', 'danger');
+            return;
+        }
+
+        const saveBtn = this;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Сохранение...';
+
+        try {
+            const response = await fetch(`/${currentOrderId}/edit_tracking`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ tracking: newTracking })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Ошибка сервера');
+            }
+
+            // Обновляем интерфейс
+            const row = document.querySelector(`tr[data-order-id="${currentOrderId}"]`);
+            if (row) {
+                row.querySelector('.tracking-number').textContent = newTracking || '-';
+                row.querySelector('.edit-tracking').dataset.currentTracking = newTracking;
+            }
+            
+            // Явно закрываем модальное окно перед показом уведомления
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editTrackingModal'));
+            modal.hide();
+            
+            // Показываем уведомление после закрытия модального окна
+            setTimeout(() => {
+                showAlert('Трек-номер успешно обновлен! Уведомления отправлены: ' + 
+                        `Telegram: ${data.notifications?.telegram ? '✓' : '✗'}, ` +
+                        `Email: ${data.notifications?.email ? '✓' : '✗'}`);
+            }, 300); // Небольшая задержка для плавности
+            
+        } catch (error) {
+            console.error('Error:', error);
+            showAlert(error.message || 'Ошибка при сохранении', 'danger');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = 'Сохранить';
+        }
+    });
+
+    document.getElementById('editTrackingModal').addEventListener('hidden.bs.modal', function () {
+        // Очищаем форму после закрытия
+        document.getElementById('newTrackingNumber').value = '';
+        currentOrderId = null;
+        
+        // Убираем "затемнение" (backdrop)
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+        
+        // Восстанавливаем скролл страницы
+        document.body.style.overflow = 'auto';
+        document.body.style.paddingRight = '0';
+    });
+
+    // Обработчик нажатия Enter в поле ввода
+    document.getElementById('newTrackingNumber').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('saveTrackingBtn').click();
+        }
+    });
+});
+</script>
+{% endblock %}

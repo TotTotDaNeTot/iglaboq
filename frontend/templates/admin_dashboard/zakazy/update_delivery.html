@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mt-4">Update Delivery Info for Order #{{ order.id }}</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('orders.update_delivery_info', order_id=order.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        
+                        <div class="mb-3">
+                            <label for="fullname" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="fullname" 
+                                   name="fullname" value="{{ order.fullname }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" class="form-control" id="city" 
+                                   name="city" value="{{ order.city }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="postcode" class="form-label">Postcode</label>
+                            <input type="text" class="form-control" id="postcode" 
+                                   name="postcode" value="{{ order.postcode }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="phone" 
+                                   name="phone" value="{{ order.phone }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" 
+                                   name="email" value="{{ order.email }}" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Update Info</button>
+                        <a href="{{ url_for('orders.order_details', order_id=order.id) }}" 
+                           class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

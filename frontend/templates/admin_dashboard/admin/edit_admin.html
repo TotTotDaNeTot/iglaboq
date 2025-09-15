@@ -1,0 +1,34 @@
+<!-- edit_admin.html -->
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mt-4">Edit Admin</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        <div class="mb-3">
+                            <label class="form-label">Username: {{ admin.username }}</label>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">New Password (leave empty to keep current)</label>
+                            <input type="password" class="form-control" id="password" name="password">
+                        </div>
+                        {% if request.jwt_user and request.jwt_user.is_superuser and not admin.is_superuser %}
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_staff" name="is_staff" {% if admin.is_staff %}checked{% endif %}>
+                            <label class="form-check-label" for="is_staff">Staff admin (can manage other admins)</label>
+                        </div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

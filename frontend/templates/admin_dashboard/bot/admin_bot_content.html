@@ -1,0 +1,311 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Управление контентом бота</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <ul class="nav nav-tabs" id="botContentTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab" aria-controls="description" aria-selected="true">
+                    Описание
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" type="button" role="tab" aria-controls="contacts" aria-selected="false">
+                    Контакты
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content p-3 border border-top-0 rounded-bottom" id="botContentTabsContent">
+            <!-- Вкладка Описание -->
+            <div class="tab-pane fade show active" id="description" role="tabpanel" aria-labelledby="description-tab">
+                <form id="descriptionForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="descriptionText" class="form-label">Текст описания</label>
+                        <textarea class="form-control" id="descriptionText" name="text" rows="8" 
+                            placeholder="Введите текст описания...">{{ description_content.text_content if description_content else '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Изображения</label>
+                        <input type="file" class="form-control" id="descriptionImage" accept="image/*">
+                        <button type="button" class="btn btn-secondary mt-2" onclick="uploadImage('description')">Загрузить изображение</button>
+                    </div>
+                    
+                    {% if description_images %}
+                    <div class="mb-3">
+                        <h6>Загруженные изображения:</h6>
+                        <div class="row">
+                            {% for image in description_images %}
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}>
+                                            <label class="form-check-label">Главное</label>
+                                        </div>
+                                        <button type="button" class="btn btn-danger btn-sm mt-2" onclick="deleteImage({{ image.id }})">Удалить</button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary">Сохранить описание</button>
+                </form>
+            </div>
+            
+            <!-- Вкладка Контакты -->
+            <div class="tab-pane fade" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
+                <form id="contactsForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="mb-3">
+                        <label for="contactsText" class="form-label">Текст контактов</label>
+                        <textarea class="form-control" id="contactsText" name="text" rows="5" placeholder="Введите текст контактов...">{{ contacts_content.text_content if contacts_content else '' }}</textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Кнопки</label>
+                        <div id="buttonsContainer">
+                            {% if contacts_buttons %}
+                                {% for button in contacts_buttons %}
+                                <div class="card mb-2 button-item">
+                                    <div class="card-body">
+                                        <div class="row">
+                                            <div class="col-md-5">
+                                                <input type="text" class="form-control" name="button_text[]" placeholder="Текст кнопки" value="{{ button.button_text }}">
+                                            </div>
+                                            <div class="col-md-5">
+                                                <input type="text" class="form-control" name="button_url[]" placeholder="URL" value="{{ button.button_url }}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <button type="button" class="btn btn-danger remove-button">×</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <button type="button" class="btn btn-secondary mt-2" id="addButton">+ Добавить кнопку</button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Изображения</label>
+                        <input type="file" class="form-control" id="contactsImage" accept="image/*">
+                        <button type="button" class="btn btn-secondary mt-2" onclick="uploadImage('contacts')">Загрузить изображение</button>
+                    </div>
+                    
+                    {% if contacts_images %}
+                    <div class="mb-3">
+                        <h6>Загруженные изображения:</h6>
+                        <div class="row">
+                            {% for image in contacts_images %}
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 150px; object-fit: cover;">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}>
+                                            <label class="form-check-label">Главное</label>
+                                        </div>
+                                        <button type="button" class="btn btn-danger btn-sm mt-2" onclick="deleteImage({{ image.id }})">Удалить</button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <button type="submit" class="btn btn-primary">Сохранить контакты</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Добавление новой кнопки
+    document.getElementById('addButton').addEventListener('click', function() {
+        const buttonHtml = `
+        <div class="card mb-2 button-item">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="button_text" placeholder="Текст кнопки">
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="button_url" placeholder="URL">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-danger remove-button">×</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        document.getElementById('buttonsContainer').insertAdjacentHTML('beforeend', buttonHtml);
+    });
+    
+    // Удаление кнопки
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-button')) {
+            e.target.closest('.button-item').remove();
+        }
+    });
+    
+    // Обработка отправки форм
+    document.getElementById('descriptionForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveContent('description');
+    });
+    
+    document.getElementById('contactsForm')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveContent('contacts');
+    });
+});
+
+function saveContent(contentType) {
+    const formData = new FormData();
+    const text = document.getElementById(contentType + 'Text').value;
+    formData.append('text', text);
+    
+    if (contentType === 'contacts') {
+        // Собираем кнопки
+        document.querySelectorAll('#buttonsContainer .button-item').forEach((item, index) => {
+            const text = item.querySelector('input[name="button_text"]').value;
+            const url = item.querySelector('input[name="button_url"]').value;
+            if (text && url) {
+                formData.append('button_text[]', text);
+                formData.append('button_url[]', url);
+            }
+        });
+    }
+    
+    fetch(`/api/bot-content/${contentType}`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Сохранено успешно!');
+        } else {
+            alert('Ошибка: ' + (data.message || data.error));
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка при сохранении');
+        console.error('Save error:', error);
+    });
+}
+
+function uploadImage(contentType) {
+    const fileInput = document.getElementById(contentType + 'Image');
+    const file = fileInput.files[0];
+    
+    console.log("📤 Отправка изображения:", file?.name, "для типа:", contentType);
+    
+    if (!file) {
+        alert('Выберите файл для загрузки');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('content_type', contentType);
+    
+    console.log("📦 FormData:", formData);
+    
+    fetch('/api/bot-content/upload-image', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        }
+    })
+    .then(response => {
+        console.log("📥 Ответ:", response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log("📦 Данные ответа:", data);
+        if (data.success) {
+            alert('Изображение успешно загружено');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error("❌ Ошибка fetch:", error);
+        alert('Произошла ошибка при загрузке изображения');
+    });
+}
+
+function deleteImage(imageId) {
+    if (!confirm('Удалить это изображение?')) return;
+    
+    const formData = new FormData();
+    formData.append('image_id', imageId);
+    
+    fetch('/api/bot-content/delete-image', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Изображение удалено');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка при удалении изображения');
+    });
+}
+
+function setMainImage(imageId) {
+    fetch('/api/bot-content/set-main-image', {  
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image_id: imageId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Главное изображение установлено');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('Произошла ошибка');
+    });
+}
+</script>
+{% endblock %}

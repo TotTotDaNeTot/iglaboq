@@ -1,0 +1,35 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mt-4">Админ панель</h1>
+    
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Заказы</h5>
+                    <p class="card-text">Управление заказами</p>
+                    <a href="#" class="btn btn-primary">Перейти</a>
+                </div>
+            </div>
+        </div>
+        
+        {% if request.jwt_user.is_staff %}
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Admin Management</h5>
+                    <p class="card-text">Управление администраторами</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('admin.create_admin') }}" class="btn btn-primary">Add Admin</a>
+                        <a href="#" class="btn btn-secondary">Edit Admin</a>
+                        <a href="#" class="btn btn-danger">Delete Admin</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

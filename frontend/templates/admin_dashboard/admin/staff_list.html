@@ -1,0 +1,65 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mt-4">Admin Management</h2>
+    
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <h5 class="card-title">Admin List</h5>
+                        <a href="{{ url_for('admin.create_admin') }}" class="btn btn-primary btn-sm">Add Admin</a>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for admin in admins %}
+                                <tr>
+                                    <td>
+                                        {{ admin.username }}
+                                        {% if admin.is_superuser %}
+                                        <span class="badge bg-warning text-dark">Super Admin</span>
+                                        {% elif admin.is_staff %}
+                                        <span class="badge bg-info">Staff Admin</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Regular Admin</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if admin.is_superuser %}
+                                        Super Admin (full access)
+                                        {% elif admin.is_staff %}
+                                        Staff Admin (can manage other admins)
+                                        {% else %}
+                                        Regular Admin (basic access)
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if not admin.is_superuser and request.jwt_user.is_staff %}
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('admin.edit_admin', admin_id=admin.id) }}" class="btn btn-outline-primary">Edit</a>
+                                            <a href="{{ url_for('admin.delete_admin', admin_id=admin.id) }}" class="btn btn-outline-danger">Delete</a>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
