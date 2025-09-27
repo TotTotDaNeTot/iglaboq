@@ -1,18 +1,12 @@
 {% extends "admin/base.html" %}
 
 {% block content %}
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        <div class="flash-messages">
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }} alert-dismissible fade show">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
-{% endwith %}
+{% if message %}
+    <div class="alert alert-info alert-dismissible fade show">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+{% endif %}
 
 <div class="container-fluid">
     <h2 class="mt-4">Journals Management</h2>
@@ -23,7 +17,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="card-title">Journals List</h5>
-                        <a href="{{ url_for('journal.add_journal') }}" class="btn btn-primary btn-sm">Add Journal</a>
+                        <a href="/journal/add" class="btn btn-primary btn-sm">Add Journal</a>
                     </div>
                     
                     <div class="table-responsive">
@@ -52,12 +46,11 @@
                                     <td>{{ journal.description|truncate(50) }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('journal.edit_journal', journal_id=journal.id) }}" 
+                                            <a href="/journal/{{ journal.id }}/edit" 
                                             class="btn btn-outline-primary">Edit</a>
                                             <form method="POST" 
-                                                action="{{ url_for('journal.delete_journal', journal_id=journal.id) }}" 
+                                                action="/journal/delete/{{ journal.id }}"
                                                 class="delete-journal-form">
-                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                 <button type="submit" class="btn btn-outline-danger">Delete</button>
                                             </form>
                                         </div>

@@ -8,8 +8,7 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('orders.update_delivery_info', order_id=order.id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <form method="POST" action="/orders/{{ order.id }}/update_delivery">
                         
                         <div class="mb-3">
                             <label for="fullname" class="form-label">Full Name</label>
@@ -42,7 +41,7 @@
                         </div>
                         
                         <button type="submit" class="btn btn-primary">Update Info</button>
-                        <a href="{{ url_for('orders.order_details', order_id=order.id) }}" 
+                        <a href="/orders/details/{{ order.id }}" 
                            class="btn btn-secondary">Cancel</a>
                     </form>
                 </div>

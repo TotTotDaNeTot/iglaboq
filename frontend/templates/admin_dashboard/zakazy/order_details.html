@@ -7,7 +7,7 @@
     <div class="row mt-4">
         <div class="col-md-6">
             <div class="card">
-                <div class="card-body" style="padding-bottom: 67px;"> <!-- Увеличено пространство внизу -->
+                <div class="card-body" style="padding-bottom: 67px;"> 
                     <h5 class="card-title">Order #{{ order.id }}</h5>
                     <div class="row">
                         <div class="col-md-6">
@@ -84,7 +84,7 @@
                     
                     <div class="d-grid gap-2 mt-3">
                         {% if order.status == 'paid' %}
-                        <a href="{{ url_for('orders.update_delivery_info', order_id=order.id) }}" 
+                        <a href="/orders/delivery/{{ order.id }}" 
                            class="btn btn-warning btn-sm">
                            Edit Delivery Info
                         </a>
@@ -98,7 +98,7 @@
     <div class="row mt-4">
         <div class="col-md-12">
             <div class="d-flex justify-content-between">
-                <a href="{{ url_for('orders.orders_list', status=order.status) }}" class="btn btn-secondary">
+                <a href="/orders/list/{{ order.status }}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Back to Orders
                 </a>
             </div>

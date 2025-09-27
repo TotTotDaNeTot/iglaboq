@@ -10,7 +10,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-3">
                         <h5 class="card-title">Admin List</h5>
-                        <a href="{{ url_for('admin.create_admin') }}" class="btn btn-primary btn-sm">Add Admin</a>
+                        <a href="/admin/create" class="btn btn-primary btn-sm">Add Admin</a>
                     </div>
                     
                     <div class="table-responsive">
@@ -45,10 +45,10 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        {% if not admin.is_superuser and request.jwt_user.is_staff %}
+                                        {% if not admin.is_superuser and user and user.is_staff %}
                                         <div class="btn-group btn-group-sm">
-                                            <a href="{{ url_for('admin.edit_admin', admin_id=admin.id) }}" class="btn btn-outline-primary">Edit</a>
-                                            <a href="{{ url_for('admin.delete_admin', admin_id=admin.id) }}" class="btn btn-outline-danger">Delete</a>
+                                            <a href="/admin/edit/{{ admin.id }}" class="btn btn-outline-primary">Edit</a>
+                                            <a href="/admin/delete/{{ admin.id }}" class="btn btn-outline-danger">Delete</a>
                                         </div>
                                         {% endif %}
                                     </td>

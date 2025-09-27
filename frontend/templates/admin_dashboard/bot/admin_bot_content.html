@@ -24,7 +24,6 @@
             <!-- Вкладка Описание -->
             <div class="tab-pane fade show active" id="description" role="tabpanel" aria-labelledby="description-tab">
                 <form id="descriptionForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
                     <div class="mb-3">
                         <label for="descriptionText" class="form-label">Текст описания</label>
@@ -35,7 +34,9 @@
                     <div class="mb-3">
                         <label class="form-label">Изображения</label>
                         <input type="file" class="form-control" id="descriptionImage" accept="image/*">
-                        <button type="button" class="btn btn-secondary mt-2" onclick="uploadImage('description')">Загрузить изображение</button>
+                        <button type="button" class="btn btn-secondary mt-2" id="uploadDescriptionBtn" onclick="uploadImage('description')">
+                            Загрузить изображение
+                        </button>
                     </div>
                     
                     {% if description_images %}
@@ -43,15 +44,16 @@
                         <h6>Загруженные изображения:</h6>
                         <div class="row">
                             {% for image in description_images %}
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 150px; object-fit: cover;">
-                                    <div class="card-body">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}>
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 250px; object-fit: contain; background-color: #f8f9fa;">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}
+                                                   onchange="setMainImage({{ image.id }})">
                                             <label class="form-check-label">Главное</label>
                                         </div>
-                                        <button type="button" class="btn btn-danger btn-sm mt-2" onclick="deleteImage({{ image.id }})">Удалить</button>
+                                        <button type="button" class="btn btn-danger btn-sm mt-auto" onclick="deleteImage({{ image.id }})">Удалить</button>
                                     </div>
                                 </div>
                             </div>
@@ -67,7 +69,6 @@
             <!-- Вкладка Контакты -->
             <div class="tab-pane fade" id="contacts" role="tabpanel" aria-labelledby="contacts-tab">
                 <form id="contactsForm">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     
                     <div class="mb-3">
                         <label for="contactsText" class="form-label">Текст контактов</label>
@@ -103,7 +104,9 @@
                     <div class="mb-3">
                         <label class="form-label">Изображения</label>
                         <input type="file" class="form-control" id="contactsImage" accept="image/*">
-                        <button type="button" class="btn btn-secondary mt-2" onclick="uploadImage('contacts')">Загрузить изображение</button>
+                        <button type="button" class="btn btn-secondary mt-2" id="uploadContactsBtn" onclick="uploadImage('contacts')">
+                            Загрузить изображение
+                        </button>
                     </div>
                     
                     {% if contacts_images %}
@@ -111,15 +114,16 @@
                         <h6>Загруженные изображения:</h6>
                         <div class="row">
                             {% for image in contacts_images %}
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 150px; object-fit: cover;">
-                                    <div class="card-body">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}>
+                            <div class="col-md-4 mb-4">
+                                <div class="card h-100">
+                                    <img src="{{ image.image_url }}" class="card-img-top" style="height: 250px; object-fit: contain; background-color: #f8f9fa;">
+                                    <div class="card-body d-flex flex-column">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="checkbox" name="main_image" value="{{ image.id }}" {% if image.is_main %}checked{% endif %}
+                                                   onchange="setMainImage({{ image.id }})">
                                             <label class="form-check-label">Главное</label>
                                         </div>
-                                        <button type="button" class="btn btn-danger btn-sm mt-2" onclick="deleteImage({{ image.id }})">Удалить</button>
+                                        <button type="button" class="btn btn-danger btn-sm mt-auto" onclick="deleteImage({{ image.id }})">Удалить</button>
                                     </div>
                                 </div>
                             </div>
@@ -184,23 +188,28 @@ function saveContent(contentType) {
     formData.append('text', text);
     
     if (contentType === 'contacts') {
-        // Собираем кнопки
-        document.querySelectorAll('#buttonsContainer .button-item').forEach((item, index) => {
-            const text = item.querySelector('input[name="button_text"]').value;
-            const url = item.querySelector('input[name="button_url"]').value;
-            if (text && url) {
-                formData.append('button_text[]', text);
-                formData.append('button_url[]', url);
+        // Собираем кнопки - ИСПРАВЛЕННАЯ ЧАСТЬ
+        const buttonTexts = [];
+        const buttonUrls = [];
+        
+        document.querySelectorAll('#buttonsContainer .button-item').forEach((item) => {
+            const textInput = item.querySelector('input[name="button_text"]');
+            const urlInput = item.querySelector('input[name="button_url"]');
+            
+            if (textInput && urlInput && textInput.value && urlInput.value) {
+                buttonTexts.push(textInput.value);
+                buttonUrls.push(urlInput.value);
             }
         });
+        
+        // Добавляем кнопки в formData
+        buttonTexts.forEach(text => formData.append('button_text', text));
+        buttonUrls.forEach(url => formData.append('button_url', url));
     }
     
     fetch(`/api/bot-content/${contentType}`, {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-        }
     })
     .then(response => response.json())
     .then(data => {
@@ -219,6 +228,7 @@ function saveContent(contentType) {
 function uploadImage(contentType) {
     const fileInput = document.getElementById(contentType + 'Image');
     const file = fileInput.files[0];
+    const uploadBtn = document.getElementById('upload' + contentType.charAt(0).toUpperCase() + contentType.slice(1) + 'Btn');
     
     console.log("📤 Отправка изображения:", file?.name, "для типа:", contentType);
     
@@ -226,6 +236,10 @@ function uploadImage(contentType) {
         alert('Выберите файл для загрузки');
         return;
     }
+    
+    // Блокируем кнопку и показываем индикатор загрузки
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Загрузка...';
     
     const formData = new FormData();
     formData.append('image', file);
@@ -236,9 +250,6 @@ function uploadImage(contentType) {
     fetch('/api/bot-content/upload-image', {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-        }
     })
     .then(response => {
         console.log("📥 Ответ:", response.status);
@@ -246,6 +257,11 @@ function uploadImage(contentType) {
     })
     .then(data => {
         console.log("📦 Данные ответа:", data);
+        
+        // Восстанавливаем кнопку независимо от результата
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = 'Загрузить изображение';
+        
         if (data.success) {
             alert('Изображение успешно загружено');
             location.reload();
@@ -255,6 +271,11 @@ function uploadImage(contentType) {
     })
     .catch(error => {
         console.error("❌ Ошибка fetch:", error);
+        
+        // Восстанавливаем кнопку при ошибке
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = 'Загрузить изображение';
+        
         alert('Произошла ошибка при загрузке изображения');
     });
 }
@@ -268,9 +289,6 @@ function deleteImage(imageId) {
     fetch('/api/bot-content/delete-image', {
         method: 'POST',
         body: formData,
-        headers: {
-            'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value
-        }
     })
     .then(response => response.json())
     .then(data => {
@@ -287,6 +305,8 @@ function deleteImage(imageId) {
 }
 
 function setMainImage(imageId) {
+    if (!confirm('Сделать это изображение главным?')) return;
+    
     fetch('/api/bot-content/set-main-image', {  
         method: 'POST',
         headers: {
@@ -308,4 +328,33 @@ function setMainImage(imageId) {
     });
 }
 </script>
+
+<style>
+/* Дополнительные стили для лучшего отображения */
+.card-img-top {
+    transition: transform 0.2s;
+}
+.card-img-top:hover {
+    transform: scale(1.05);
+}
+.card {
+    transition: box-shadow 0.2s;
+}
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Стили для заблокированной кнопки */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Стили для спиннера */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.5rem;
+}
+</style>
 {% endblock %}

@@ -9,12 +9,35 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
-                    <p>Are you sure you want to delete admin <strong>{{ admin.username }}</strong>?</p>
+                    <!-- 🔥 ВСТАВЛЯЕМ ПРОВЕРКИ ЗДЕСЬ -->
+                    {% if admin.id == user.id %}
+                    <div class="alert alert-danger">
+                        <h5>❌ Cannot Delete Your Own Account</h5>
+                        <p>You cannot delete your own account for security reasons.</p>
+                    </div>
+                    {% elif admin.is_superuser %}
+                    <div class="alert alert-danger">
+                        <h5>❌ Super Admin Protected</h5>
+                        <p>Super administrator accounts cannot be deleted.</p>
+                    </div>
+                    {% elif admin.is_staff and not user.is_superuser %}
+                    <div class="alert alert-danger">
+                        <h5>❌ Insufficient Permissions</h5>
+                        <p>Only super administrators can delete staff administrators.</p>
+                    </div>
+                    {% else %}
+                    <!-- 🔥 ЕСЛИ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ - ПОКАЗЫВАЕМ ФОРМУ -->
+                    <div class="alert alert-warning">
+                        <h5>⚠️ Confirm Deletion</h5>
+                        <p>Are you sure you want to delete admin <strong>{{ admin.username }}</strong>?</p>
+                        <p class="mb-0">This action cannot be undone.</p>
+                    </div>
+                    
                     <form method="POST">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                         <button type="submit" class="btn btn-danger">Confirm Delete</button>
-                        <a href="{{ url_for('admin.admin_list') }}" class="btn btn-secondary">Cancel</a>
+                        <a href="/admin/list" class="btn btn-secondary">Cancel</a>
                     </form>
+                    {% endif %}
                 </div>
             </div>
         </div>

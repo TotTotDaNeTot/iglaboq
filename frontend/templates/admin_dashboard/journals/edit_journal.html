@@ -5,15 +5,14 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-body">
-                    <form method="POST" action="{{ url_for('journal.edit_journal', journal_id=journal.id) }}" class="needs-validation" novalidate enctype="multipart/form-data">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <form method="POST" action="/journal/{{ journal.id }}/edit" class="needs-validation" novalidate enctype="multipart/form-data">
                         
                         <!-- Основные данные журнала -->
                         <div class="mb-3">
-                            <label for="journal_id" class="form-label">Journal ID*</label>
-                            <input type="number" class="form-control" id="journal_id" 
-                                   name="journal_id" value="{{ journal.id }}" required
-                                   min="1">
+                            <label for="new_id" class="form-label">Journal ID*</label>
+                            <input type="number" class="form-control" id="new_id" 
+                                name="new_id" value="{{ journal.id }}" required
+                                min="1">
                             <div class="invalid-feedback">Please provide a valid journal ID</div>
                         </div>
                         
@@ -62,34 +61,33 @@
                                 {% if journal.images %}
                                 <div class="mb-4">
                                     <h6>Existing Images</h6>
-                                    <!-- Горизонтальная полоса с прокруткой -->
-                                    <div class="d-flex overflow-auto pb-3" style="gap: 15px;">
+                                    <div class="row">
                                         {% for image in journal.images %}
-                                        <div class="flex-shrink-0" style="width: 200px;">
-                                            <div class="card">
+                                        <div class="col-md-4 mb-4">
+                                            <div class="card h-100">
                                                 <!-- АВТОМАТИЧЕСКОЕ ИСПРАВЛЕНИЕ URL ПРЯМО В ШАБЛОНЕ -->
                                                 {% set image_url = image.image_url %}
                                                 {% if 'minio_proxy/journals/' in image_url %}
                                                     {% set image_url = image_url.replace('minio_proxy/journals/', 'fast_image/') %}
-                                                    {% set image_url = image_url.replace('uncertainly-kind-nuthatch.cloudpub.ru', 'stunningly-stupendous-caterpillar.cloudpub.ru') %}
+                                                    {% set image_url = image_url.replace('dismally-familiar-sharksucker.cloudpub.ru', 'dismally-familiar-sharksucker.cloudpub.ru') %}
                                                 {% endif %}
                                                 
                                                 <img src="{{ image_url }}" 
-                                                    class="card-img-top" alt="Journal image" 
-                                                    style="height: 150px; object-fit: cover;"
-                                                    onerror="this.onerror=null; this.src='/static/images/placeholder.jpg'">
-                                                <div class="card-body text-center">
+                                                    class="card-img-top" 
+                                                    style="height: 250px; object-fit: contain; background-color: #f8f9fa;"
+                                                    onerror="this.onerror=null; this.src='http://localhost:5007/fast_image/placeholder.jpg'">
+                                                <div class="card-body d-flex flex-column">
                                                     <small class="text-muted d-block mb-2" style="font-size: 10px;">
                                                         ID: {{ image.id }}
                                                     </small>
-                                                    <div class="form-check">
+                                                    <div class="form-check mb-2">
                                                         <input type="radio" name="main_image" value="{{ image.id }}" 
                                                             {{ 'checked' if image.is_main }} class="form-check-input">
                                                         <label class="form-check-label">Main image</label>
                                                     </div>
                                                     <div class="form-check mt-2">
                                                         <input type="checkbox" name="delete_images" value="{{ image.id }}" 
-                                                            class="form-check-input">
+                                                            class="form-check-input delete-checkbox">
                                                         <label class="form-check-label text-danger">Delete</label>
                                                     </div>
                                                 </div>
@@ -124,22 +122,22 @@
                                 <!-- Существующие изображения бота -->
                                 <div class="mb-4" id="bot-images-container">
                                     <h6>Existing Bot Images</h6>
-                                    <div class="d-flex overflow-auto pb-3" style="gap: 15px;">
+                                    <div class="row">
                                         {% for image in journal.bot_images %}
-                                        <div class="flex-shrink-0" style="width: 200px;">
-                                            <div class="card">
+                                        <div class="col-md-4 mb-4">
+                                            <div class="card h-100">
                                                 <img src="{{ image.image_url }}" 
                                                     class="card-img-top" alt="Bot image" 
-                                                    style="height: 150px; object-fit: cover;">
-                                                <div class="card-body text-center">
-                                                    <div class="form-check">
+                                                    style="height: 250px; object-fit: contain; background-color: #f8f9fa;">
+                                                <div class="card-body d-flex flex-column">
+                                                    <div class="form-check mb-2">
                                                         <input type="radio" name="main_bot_image" value="{{ image.id }}" 
                                                             {{ 'checked' if image.is_main }} class="form-check-input">
                                                         <label class="form-check-label">Main image</label>
                                                     </div>
                                                     <div class="form-check mt-2">
                                                         <input type="checkbox" name="delete_bot_images" value="{{ image.id }}" 
-                                                            class="form-check-input">
+                                                            class="form-check-input delete-checkbox">
                                                         <label class="form-check-label text-danger">Delete</label>
                                                     </div>
                                                 </div>
@@ -168,7 +166,7 @@
                             <button type="submit" class="btn btn-primary">
                                 <i class="fas fa-save me-2"></i>Save Changes
                             </button>
-                            <a href="{{ url_for('journal.journals_list') }}" class="btn btn-secondary">
+                            <a href="/journal/list" class="btn btn-secondary">
                                 <i class="fas fa-times me-2"></i>Cancel
                             </a>
                         </div>
@@ -203,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
     })();
 
     // Подтверждение удаления изображений
-    const deleteCheckboxes = document.querySelectorAll('input[name="delete_images"]');
+    const deleteCheckboxes = document.querySelectorAll('.delete-checkbox');
     deleteCheckboxes.forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             if (this.checked) {
@@ -215,4 +213,20 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<style>
+/* Дополнительные стили для лучшего отображения изображений */
+.card-img-top {
+    transition: transform 0.2s;
+}
+.card-img-top:hover {
+    transform: scale(1.05);
+}
+.card {
+    transition: box-shadow 0.2s;
+}
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
 {% endblock %}

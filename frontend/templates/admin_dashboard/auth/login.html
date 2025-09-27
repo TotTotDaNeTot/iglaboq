@@ -12,18 +12,15 @@
                     <div class="card-body p-4">
                         <h2 class="text-center mb-4">Вход в админку</h2>
                         
-                        {% with messages = get_flashed_messages(with_categories=true) %}
-                            {% if messages %}
-                                {% for category, message in messages %}
-                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">
-                                        {{ message }}
-                                    </div>
-                                {% endfor %}
-                            {% endif %}
-                        {% endwith %}
+                        <!-- УДАЛЕНО: get_flashed_messages -->
+                        {% if message %}
+                            <div class="alert alert-{{ 'danger' if message.type == 'error' else 'success' }}">
+                                {{ message.text }}
+                            </div>
+                        {% endif %}
                         
-                        <!-- ЗАМЕНИТЕ ОБЫЧНУЮ ФОРМУ НА ЭТУ -->
-                        <form id="loginForm">
+                        <!-- ИСПРАВЛЕННАЯ ФОРМА -->
+                        <form method="POST" action="/web_auth/login">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Логин</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
@@ -32,9 +29,7 @@
                                 <label for="password" class="form-label">Пароль</label>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100" id="loginBtn">
-                                Войти
-                            </button>
+                            <button type="submit" class="btn btn-primary w-100">Войти</button>
                         </form>
 
                         <!-- Индикатор загрузки -->
@@ -56,10 +51,9 @@
         e.preventDefault();
         
         // Получаем данные формы
-        const formData = {
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value
-        };
+        const formData = new FormData();
+        formData.append('username', document.getElementById('username').value);
+        formData.append('password', document.getElementById('password').value);
         
         // Показываем индикатор загрузки
         document.getElementById('loading').style.display = 'block';
@@ -67,24 +61,26 @@
         document.getElementById('errorAlert').style.display = 'none';
         
         try {
-            // Отправляем AJAX запрос к API
+            // Отправляем FormData вместо JSON
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(formData)
+                body: formData  // ← FormData вместо JSON
             });
             
             const data = await response.json();
             
             if (response.ok && data.success) {
-                // Успешный вход - перенаправляем на dashboard
-                window.location.href = '/dashboard';
+                // Сохраняем токен в localStorage для последующих запросов
+                localStorage.setItem('jwt_token', data.token);
+                
+                // Устанавливаем cookie вручную
+                document.cookie = `jwt_token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
+                
+                // Редирект
+                window.location.href = data.redirect || '/admin/dashboard';
             } else {
                 // Показываем ошибку
-                showError(data.error || 'Ошибка входа');
+                showError(data.detail || data.message || 'Ошибка входа');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -110,6 +106,13 @@
     // Фокус на поле username при загрузке
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('username').focus();
+        
+        // Показать сообщение из URL параметров
+        const urlParams = new URLSearchParams(window.location.search);
+        const message = urlParams.get('message');
+        if (message) {
+            showError(decodeURIComponent(message));
+        }
     });
     </script>
 </body>

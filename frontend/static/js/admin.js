@@ -2,6 +2,16 @@
  * Admin Panel JavaScript - Optimized Version
  */
 document.addEventListener('DOMContentLoaded', () => {
+
+    console.log('Admin JS started');
+    
+    // Проверка всех meta-тегов
+    const metaTags = document.querySelectorAll('meta');
+    console.log('Meta tags found:', metaTags.length);
+    metaTags.forEach(meta => {
+        console.log('Meta:', meta.getAttribute('name'), meta.getAttribute('content'));
+    });
+    
     // 1. Menu Highlighting
     const highlightActiveMenu = () => {
         const currentPath = window.location.pathname;
@@ -39,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
                     
                     // AJAX-отправка
-                    fetch('/ship', {
+                    fetch('/orders/ship', {
                         method: 'POST',
                         body: new FormData(this)
                     })
@@ -196,6 +206,25 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
+    const showAlert = (message, type = 'success') => {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.style.position = 'fixed';
+        alertDiv.style.top = '20px';
+        alertDiv.style.right = '20px';
+        alertDiv.style.zIndex = '9999';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 5000);
+    };
 
     const setupOrderShipping = () => {
         document.addEventListener('click', async (e) => {
@@ -211,14 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
                 
                 try {
-                    const response = await fetch('/ship', {
+                    const response = await fetch('/orders/ship', {
                         method: 'POST',
                         headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                            'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({
-                            order_id: orderId,
+                            order_id: parseInt(orderId),
                             track_number: trackNumber
                         })
                     });
@@ -226,16 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await response.json();
                     
                     if (data.success) {
-                        // Полностью УДАЛЯЕМ строку из таблицы
                         row.remove();
-                        
-                        showAlert(`Заказ #${orderId} успешно отмечен как отправленный и удален из списка!`);
+                        alert(`Заказ #${orderId} успешно отмечен как отправленный!`);
                     } else {
                         throw new Error(data.message || 'Ошибка сервера');
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    showAlert(error.message || 'Произошла ошибка при обновлении заказа', 'danger');
+                    alert(error.message || 'Произошла ошибка при обновлении заказа');
                     e.target.disabled = false;
                     e.target.innerHTML = originalBtnHTML;
                 }
