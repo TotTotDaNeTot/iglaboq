@@ -1,0 +1,5 @@
+.env
+__pycache__/
+.venv/
+admin_panel.py
+app_init.py

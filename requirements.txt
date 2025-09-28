@@ -9,3 +9,10 @@ fastapi
 python-dotenv
 aiohttp
 aiomysql
+asyncpg
+uvicorn
+flask-login
+flask-sqlalchemy
+requests
+minio
+Pillow

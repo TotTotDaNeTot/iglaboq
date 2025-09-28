@@ -32,13 +32,21 @@
                             <label for="password" class="form-label">Password</label>
                             <input type="password" class="form-control" id="password" name="password" required>
                         </div>
+                        
+                        <!-- Показываем галочку ТОЛЬКО для супер-админа -->
                         {% if user and user.is_superuser %}
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="is_staff" name="is_staff"
                                    {% if form_data and form_data.is_staff %}checked{% endif %}>
                             <label class="form-check-label" for="is_staff">Make staff admin (can manage other admins)</label>
                         </div>
+                        {% else %}
+                        <!-- Для Staff админа показываем информацию что создается обычный админ -->
+                        <div class="alert alert-info">
+                            <small>Вы создаете обычного администратора (без прав управления другими админами)</small>
+                        </div>
                         {% endif %}
+                        
                         <button type="submit" class="btn btn-primary">Create Admin</button>
                         <a href="/admin/list" class="btn btn-secondary">Cancel</a>
                     </form>

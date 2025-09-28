@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Добавим отдельную функцию для инициализации кнопок редактирования
+    // функция для инициализации кнопок редактирования
     const initEditTrackingButtons = () => {
         document.querySelectorAll('.edit-tracking').forEach(btn => {
             btn.addEventListener('click', function() {

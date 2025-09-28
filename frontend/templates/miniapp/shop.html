@@ -530,7 +530,6 @@
         const nextBtn = document.getElementById('gallery-next');
         const galleryWrapper = document.getElementById('gallery-wrapper');
         
-        // УДАЛЯЕМ старые обработчики чтобы избежать дублирования
         prevBtn.onclick = null;
         nextBtn.onclick = null;
         galleryWrapper.ontouchstart = null;
@@ -564,7 +563,6 @@
         }
     }
 
-    // Обновите функцию switchImage:
     function switchImage(direction) {
         if (images.length <= 1 || isAnimating) return;
         

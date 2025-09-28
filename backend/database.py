@@ -10,17 +10,11 @@ from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 
 from dotenv import load_dotenv
+
+
+
 load_dotenv()
 
-
-# BOT_TOKEN = os.getenv('BOT_TOKEN')
-# if not BOT_TOKEN:
-#     raise ValueError("Не указан BOT_TOKEN в переменных окружения")
-
-# bot = Bot(
-#     token=BOT_TOKEN,
-#     default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-# )
 
 
 
@@ -28,15 +22,16 @@ class Database:
     def __init__(self):
         self.pool: Optional[aiomysql.Pool] = None
         self.logger = logging.getLogger(__name__)
+        
 
     async def connect(self, **kwargs):
         try:
             self.pool = await aiomysql.create_pool(
-                unix_socket='/Applications/MAMP/tmp/mysql/mysql.sock',
-                user='root',
-                password='root',
-                db='tg_bot',
-                port=8889,
+                unix_socket=os.getenv('DB_UNIX_SOCKET'),
+                user=os.getenv('DB_USER'),
+                password=os.getenv('PASSWORD'),
+                db=os.getenv('DB_NAME'),
+                port=int(os.getenv('DB_PORT')),
                 autocommit=True,
                 minsize=1,
                 maxsize=5
@@ -45,6 +40,11 @@ class Database:
         except Exception as e:
             self.logger.error(f"❌ Ошибка подключения: {e}")
             raise
+    
+    
+    def transaction(self):
+        """Контекстный менеджер для транзакций"""
+        return DatabaseTransaction(self)
         
     
     async def save_order(
@@ -133,8 +133,8 @@ class Database:
         
         
         
-    ######### PAYMENTS ##########    
         
+    ######### PAYMENTS ##########    
     async def create_payment(self, payment_id: str, user_id: int, amount: float, status: str = 'pending') -> bool:
         """Создает запись о платеже в БД"""
         try:
@@ -150,6 +150,8 @@ class Database:
             self.logger.error(f"Error creating payment: {e}")
             return False
 
+
+
     async def update_payment_status(self, payment_id: str, status: str) -> bool:
         """Обновляет статус платежа"""
         try:
@@ -162,6 +164,8 @@ class Database:
             self.logger.error(f"Error updating payment status: {e}")
             return False
 
+
+
     async def get_payment(self, payment_id: str) -> Optional[Dict[str, Any]]:
         """Получает информацию о платеже"""
         try:
@@ -172,6 +176,8 @@ class Database:
         except Exception as e:
             self.logger.error(f"Error getting payment: {e}")
             return None
+
+
 
     async def get_user_payments(self, user_id: int) -> List[Dict[str, Any]]:
         """Получает все платежи пользователя"""
@@ -186,8 +192,8 @@ class Database:
         
         
         
+        
     ##### ADMIN #######
-
     async def create_admin(self, username: str, password_hash: str, is_staff: bool = False) -> bool:
         """Создает администратора"""
         try:
@@ -224,7 +230,6 @@ class Database:
         return check_password_hash(admin['password_hash'], password)
     
     
-    
 
     async def execute(self, query: str, args=None):
         if not self.pool:
@@ -235,11 +240,15 @@ class Database:
                 await cur.execute(query, args or ())
                 return cur
 
+
+
     async def fetch_all(self, query: str, args=None) -> List[Dict[str, Any]]:
         async with self.pool.acquire() as conn:
             async with conn.cursor(aiomysql.DictCursor) as cur:
                 await cur.execute(query, args or ())
                 return await cur.fetchall()
+
+
 
     async def fetch_one(self, query: str, args=None) -> Dict[str, Any]:
         async with self.pool.acquire() as conn:
@@ -247,19 +256,53 @@ class Database:
                 await cur.execute(query, args or ())
                 return await cur.fetchone()
     
-    def sync_fetch_one(self, query: str, args=None):
-        """Синхронная версия fetch_one"""
-        
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(self.fetch_one(query, args))
-        finally:
-            loop.close()
+                  
 
     async def close(self):
         if self.pool:
             self.pool.close()
             await self.pool.wait_closed()
 
+
+
+
+
+class DatabaseTransaction:
+    def __init__(self, db):
+        self.db = db
+        self.conn = None
+        self.cursor = None
+    
+    
+    async def __aenter__(self):
+        """Начало транзакции"""
+        self.conn = await self.db.pool.acquire()
+        self.cursor = await self.conn.cursor(aiomysql.DictCursor)
+        await self.conn.autocommit(False)
+        return self.cursor
+    
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Завершение транзакции"""
+        try:
+            if exc_type is None:
+                # Если не было исключения - коммитим
+                await self.conn.commit()
+                self.db.logger.info("✅ Транзакция успешно завершена")
+            else:
+                # Если было исключение - откатываем
+                await self.conn.rollback()
+                self.db.logger.warning("❌ Транзакция откачена из-за ошибки")
+                
+        finally:
+            # Всегда освобождаем ресурсы
+            if self.cursor:
+                await self.cursor.close()
+            if self.conn:
+                await self.db.pool.release(self.conn)
+                
+                
+
 # Глобальный экземпляр
 db = Database()
+

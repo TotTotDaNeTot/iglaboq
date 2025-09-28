@@ -12,14 +12,12 @@
                     <div class="card-body p-4">
                         <h2 class="text-center mb-4">Вход в админку</h2>
                         
-                        <!-- УДАЛЕНО: get_flashed_messages -->
                         {% if message %}
                             <div class="alert alert-{{ 'danger' if message.type == 'error' else 'success' }}">
                                 {{ message.text }}
                             </div>
                         {% endif %}
                         
-                        <!-- ИСПРАВЛЕННАЯ ФОРМА -->
                         <form method="POST" action="/web_auth/login">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Логин</label>
@@ -61,10 +59,9 @@
         document.getElementById('errorAlert').style.display = 'none';
         
         try {
-            // Отправляем FormData вместо JSON
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
-                body: formData  // ← FormData вместо JSON
+                body: formData 
             });
             
             const data = await response.json();

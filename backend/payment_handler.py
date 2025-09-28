@@ -1,38 +1,37 @@
+from flask import Flask
+from flask_cors import CORS
+
+from yookassa import Configuration, Payment
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import *
+from aiogram.fsm.storage.memory import MemoryStorage
 
-from dotenv import load_dotenv
+import aiomysql
+import aiohttp
+from aiohttp import web
+
+import asyncio
 
 
-from flask import Flask, request, jsonify, redirect
-from flask_cors import CORS
+from services.email_service import email_service
+from services.bot_notifications import send_telegram_payment_async
 
 import logging
 import uuid
 import sys
 import os
 import requests
-import json
-import asyncio
 
-from gunicorn.glogging import Logger
-from yookassa import Configuration, Payment
-from aiomysql import create_pool
-from aiogram.fsm.storage.memory import MemoryStorage
 
-from database import db 
-
-import mysql.connector
-from mysql.connector import pooling
-
-from yookassa import Payment
 
 
 app = Flask(__name__)
 CORS(app)  # Разрешаем все CORS-запросы
+
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -43,6 +42,9 @@ logger = logging.getLogger(__name__)
 # Конфигурация ЮKassa
 Configuration.account_id = os.getenv('YOOKASSA_SHOP_ID')
 Configuration.secret_key = os.getenv('YOOKASSA_SECRET_KEY')
+
+YOOKASSA_SHOP_ID = os.getenv('YOOKASSA_SHOP_ID')
+YOOKASSA_SECRET_KEY = os.getenv('YOOKASSA_SECRET_KEY')
 
 
 bot = Bot(
@@ -59,205 +61,54 @@ dp = Dispatcher(bot=bot, storage=storage)
 db_pool = None
 
 
-def init_db():
-    global db_pool
+async_db_pool = None
+app = web.Application()
+
+
+
+async def init_async_db():
+    global async_db_pool
     try:
-        db_pool = pooling.MySQLConnectionPool(
-            pool_name="mamp_pool",
-            pool_size=5,
-            host='127.0.0.1',
-            user='root',
-            password='root',
-            database='tg_bot',
-            port=8889,
-            auth_plugin='mysql_native_password'
+        async_db_pool = await aiomysql.create_pool(
+            host=os.getenv('DB_HOST'),
+            user=os.getenv('DB_USER'),
+            password=os.getenv('PASSWORD'),
+            db=os.getenv('DB_NAME'),
+            port=int(os.getenv('DB_PORT')),
+            minsize=5,
+            maxsize=10,
+            autocommit=False
         )
-        logger.info("✅ Успешное подключение к MAMP MySQL")
+        logger.info("✅ Успешное создание асинхронного пула MySQL")
     except Exception as e:
-        logger.error(f"❌ Ошибка подключения к MAMP MySQL: {e}")
+        logger.error(f"❌ Ошибка создания асинхронного пула MySQL: {e}")
         raise
-
-def get_db_conn():
-    return db_pool.get_connection()
+    
 
 
+async def get_async_db():
+    return await async_db_pool.acquire()
 
-# @app.route('/create_payment', methods=['POST'])
-# def create_payment():
-#     try:
-#         data = request.json
-#         user_id = data['user_id']
-#         chat_id = data.get('chat_id', user_id)
-#         amount = float(data['amount'])
-#         journal_id = data.get('journal_id')
-        
-#         if not journal_id:
-#             return jsonify({"success": False, "error": "Journal ID is required"}), 400
 
-#         # Создаем платеж в ЮKassa
-#         payment = Payment.create({
-#             "amount": {"value": f"{amount:.2f}", "currency": "RUB"},
-#             "confirmation": {
-#                 "type": "redirect",
-#                 "return_url": "https://t.me/CocoCamBot"
-#             },
-#             "capture": True,
-#             "metadata": {
-#                 "user_id": user_id,
-#                 "chat_id": chat_id,
-#                 "journal_id": journal_id,
-#                 "fullname": data.get('fullname', ''),
-#                 "city": data.get('city', ''),
-#                 "postcode": data.get('postcode', ''),
-#                 "phone": data.get('phone', ''),
-#                 "email": data.get('email', ''),
-#                 "quantity": data.get('quantity', 1)
-#             }
-#         })
 
-#         # Сохраняем только в payments
-#         conn = db_pool.get_connection()
-#         cursor = conn.cursor()
-#         cursor.execute(
-#             """INSERT INTO payments 
-#             (payment_id, user_id, chat_id, journal_id, amount, status) 
-#             VALUES (%s, %s, %s, %s, %s, %s)""",
-#             (payment.id, user_id, chat_id, journal_id, amount, 'pending')
-#         )
-#         conn.commit()
-#         cursor.close()
-#         conn.close()
-
-#         return jsonify({
-#             "success": True,
-#             "payment_url": payment.confirmation.confirmation_url,
-#             "payment_id": payment.id
-#         })
-#     except Exception as e:
-#         logger.error(f"Payment creation failed: {e}")
-#         return jsonify({"success": False, "error": str(e)}), 500
+async def release_async_db(conn):
+    await async_db_pool.release(conn)
     
     
 
-# @app.route('/payment_webhook', methods=['POST'])
-# def payment_webhook():
-#     try:
-#         logger.info(f"Raw webhook data: {request.data}")
-#         event_json = request.json
-#         payment = event_json['object']
-        
-#         logger.info(f"Webhook received for payment: {payment['id']}, status: {payment['status']}")
-        
-#         if payment['status'] == 'succeeded':
-#             metadata = payment.get('metadata', {})
-#             user_id = metadata.get('user_id')
-#             chat_id = metadata.get('chat_id', user_id)
-#             journal_id = metadata.get('journal_id')
-#             amount = float(payment['amount']['value'])
-            
-#             # Получаем данные доставки
-#             fullname = metadata.get('fullname', 'Не указано')
-#             city = metadata.get('city', 'Не указано')
-#             postcode = metadata.get('postcode', 'Не указано')
-#             phone = metadata.get('phone', 'Не указано')
-#             email = metadata.get('email', 'Не указано')
-#             quantity = int(metadata.get('quantity'))
-            
-#             conn = db_pool.get_connection()
-#             cursor = conn.cursor(dictionary=True)
-            
-#             try:
-#                 # Сохраняем заказ в таблицу orders
-#                 cursor.execute(
-#                     """INSERT INTO orders (
-#                         tg_user_id, 
-#                         tg_username, 
-#                         fullname,
-#                         city,
-#                         postcode,
-#                         phone, 
-#                         email, 
-#                         product_id, 
-#                         quantity, 
-#                         amount, 
-#                         payment_id, 
-#                         status,
-#                         currency,
-#                         is_test
-#                     ) VALUES (
-#                         %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-#                     )""",
-#                     (
-#                         user_id,
-#                         None,  # tg_username можно получить из Telegram API
-#                         fullname,
-#                         city,
-#                         postcode,
-#                         phone,
-#                         email,
-#                         journal_id,
-#                         quantity,
-#                         amount,
-#                         payment['id'],
-#                         'paid',
-#                         payment['amount']['currency'],
-#                         payment.get('test', False)
-#                     )
-#                 )
-#                 conn.commit()
-                
-#                 logger.info(f"Order saved for payment {payment['id']}")
-                
-#                 # Обновляем статус платежа
-#                 cursor.execute(
-#                     "UPDATE payments SET status = 'succeeded' WHERE payment_id = %s",
-#                     (payment['id'],)
-#                 )
-#                 conn.commit()
-                
-#                 # Отправляем уведомление (исправленный вызов)
-#                 if chat_id:
-#                     send_telegram_notification(
-#                         chat_id=chat_id,
-#                         payment_id=payment['id'],
-#                         amount=amount,
-#                         product_id=journal_id,
-#                         customer_name=fullname,
-#                         delivery_city=city,
-#                         delivery_postcode=postcode
-#                     )
-                    
-#             except Exception as db_error:
-#                 conn.rollback()
-#                 logger.error(f"Database error: {str(db_error)}")
-#                 raise
-                
-#             finally:
-#                 cursor.close()
-#                 conn.close()
-                
-#         return jsonify({"status": "ok"}), 200
-        
-#     except Exception as e:
-#         logger.error(f"Webhook processing error: {str(e)}", exc_info=True)
-#         return jsonify({"error": str(e)}), 500
-    
-    
-    
-    
-@app.route('/create_payment', methods=['POST'])
-def create_payment():
+
+async def create_payment(request):
     conn = None
     cursor = None
     try:
-        data = request.get_json()
+        data = await request.json()
         if not data:
-            return jsonify({"success": False, "error": "No data provided"}), 400
+            return web.json_response({"success": False, "error": "No data provided"}, status=400)
 
         required_fields = ['user_id', 'amount', 'journal_id', 'quantity']
         for field in required_fields:
             if field not in data:
-                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
+                return web.json_response({"success": False, "error": f"Missing required field: {field}"}, status=400)
 
         user_id = data['user_id']
         journal_id = data['journal_id']
@@ -265,34 +116,41 @@ def create_payment():
         amount = float(data['amount'])
         
         if quantity <= 0:
-            return jsonify({"success": False, "error": "Quantity must be positive"}), 400
+            return web.json_response({"success": False, "error": "Quantity must be positive"}, status=400)
 
-        # Подключение к базе данных
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        # Асинхронное подключение
+        conn = await async_db_pool.acquire()
+        cursor = await conn.cursor(aiomysql.DictCursor)
         
-        # Начинаем транзакцию
-        cursor.execute("START TRANSACTION")
+        # НАЧИНАЕМ ТРАНЗАКЦИЮ (БЕЗ БЛОКИРОВОК)
+        await conn.begin()
         
-        # 1. Проверяем наличие товара с блокировкой строки
-        cursor.execute("SELECT quantity, price FROM journals WHERE id = %s FOR UPDATE", (journal_id,))
-        journal = cursor.fetchone()
+        # 1. АТОМАРНОЕ ВЫЧИТАНИЕ quantity БЕЗ БЛОКИРОВКИ
+        await cursor.execute(
+            "UPDATE journals SET quantity = quantity - %s WHERE id = %s AND quantity >= %s",
+            (quantity, journal_id, quantity)
+        )
         
-        if not journal:
-            conn.rollback()
-            return jsonify({"success": False, "error": "Journal not found"}), 404
+        # Проверяем, получилось ли вычесть
+        if cursor.rowcount == 0:
+            await conn.rollback()
+            await async_db_pool.release(conn)
             
-        available_quantity = journal['quantity']
+            # Узнаем текущее количество для информативного сообщения
+            await cursor.execute("SELECT quantity FROM journals WHERE id = %s", (journal_id,))
+            journal = await cursor.fetchone()
+            
+            if journal:
+                available = journal['quantity']
+                return web.json_response({
+                    "success": False,
+                    "error": f"Not enough items in stock. Available: {available}, requested: {quantity}"
+                }, status=400)
+            else:
+                return web.json_response({"success": False, "error": "Journal not found"}, status=404)
         
-        if available_quantity < quantity:
-            conn.rollback()
-            return jsonify({
-                "success": False,
-                "error": f"Not enough items in stock. Available: {available_quantity}, requested: {quantity}"
-            }), 400
-        
-        # 2. Создаем платеж в платежной системе
-        payment = Payment.create({
+        # 2. Создаем платеж в ЮKassa (асинхронно через aiohttp)
+        payment_data = {
             "amount": {
                 "value": f"{amount:.2f}",
                 "currency": "RUB"
@@ -301,6 +159,7 @@ def create_payment():
                 "type": "redirect",
                 "return_url": "https://t.me/CocoCamBot"
             },
+            "capture": True,
             "metadata": {
                 "user_id": user_id,
                 "journal_id": journal_id,
@@ -308,225 +167,354 @@ def create_payment():
                 **{k: data.get(k, '') for k in ['fullname', 'city', 'postcode', 'phone', 'email', 'chat_id']}
             },
             "description": f"Оплата журнала ID {journal_id}"
-        })
+        }
         
-        # 3. Обновляем количество товара
-        cursor.execute(
-            "UPDATE journals SET quantity = quantity - %s WHERE id = %s",
-            (quantity, journal_id)
-        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                'https://api.yookassa.ru/v3/payments',
+                json=payment_data,
+                auth=aiohttp.BasicAuth(YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY),
+                headers={'Idempotence-Key': str(uuid.uuid4())}
+            ) as response:
+                payment = await response.json()
         
-        # 4. Сохраняем информацию о платеже (используем существующую структуру таблицы)
-        cursor.execute(
+        # 3. Сохраняем информацию о платеже
+        await cursor.execute(
             """INSERT INTO payments 
             (payment_id, user_id, journal_id, amount, status) 
-            VALUES (%s, %s, %s, %s, 'pending')""",
-            (payment.id, user_id, journal_id, amount)
+            VALUES (%s, %s, %s, %s, %s)""",
+            (payment['id'], user_id, journal_id, amount, 'pending')
         )
         
-        # Фиксируем транзакцию
-        conn.commit()
+        # 4. 🔥 АВТОМАТИЧЕСКОЕ ПОДТВЕРЖДЕНИЕ ПЛАТЕЖА
+        if payment['status'] == 'waiting_for_capture':
+            try:
+                logger.info(f"Auto-capturing payment {payment['id']}")
+                
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f'https://api.yookassa.ru/v3/payments/{payment["id"]}/capture',
+                        json={"amount": {"value": f"{amount:.2f}", "currency": "RUB"}},
+                        auth=aiohttp.BasicAuth(YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY),
+                        headers={'Idempotence-Key': str(uuid.uuid4())}
+                    ) as response:
+                        capture_result = await response.json()
+                        
+                logger.info(f"Capture result: {capture_result['status']}")
+                
+                # Обновляем статус в БД
+                await cursor.execute(
+                    "UPDATE payments SET status = %s WHERE payment_id = %s",
+                    (capture_result['status'], payment['id'])
+                )
+                
+                # Если платеж успешен - создаем заказ
+                if capture_result['status'] == 'succeeded':
+                    await cursor.execute(
+                        """INSERT INTO orders (tg_user_id, fullname, city, postcode, 
+                            phone, email, product_id, quantity, amount, payment_id, status, currency)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'paid', 'RUB')""",
+                        (
+                            user_id,
+                            data.get('fullname', ''),
+                            data.get('city', ''),
+                            data.get('postcode', ''),
+                            data.get('phone', ''),
+                            data.get('email', ''),
+                            journal_id,
+                            quantity,
+                            amount,
+                            payment['id']
+                        )
+                    )
+                    
+            except Exception as e:
+                logger.error(f"Auto-capture failed: {str(e)}")
+                # Откатываем списание товара при ошибке
+                await cursor.execute(
+                    "UPDATE journals SET quantity = quantity + %s WHERE id = %s",
+                    (quantity, journal_id)
+                )
+                await conn.rollback()
+                await async_db_pool.release(conn)
+                return web.json_response({"success": False, "error": f"Payment capture failed: {str(e)}"}, status=500)
         
-        return jsonify({
+        await conn.commit()
+        await async_db_pool.release(conn)
+        
+        return web.json_response({
             "success": True,
-            "payment_url": payment.confirmation.confirmation_url,
-            "payment_id": payment.id
+            "payment_url": payment['confirmation']['confirmation_url'],
+            "payment_id": payment['id'],
+            "status": payment['status']
         })
 
     except Exception as e:
         if conn:
-            conn.rollback()
+            await conn.rollback()
+            await async_db_pool.release(conn)
         logger.error(f"Payment processing error: {str(e)}", exc_info=True)
-        return jsonify({"success": False, "error": str(e)}), 500
-        
+        return web.json_response({"success": False, "error": str(e)}, status=500)
     finally:
         if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+            await cursor.close()
             
             
 
-@app.route('/payment_webhook', methods=['POST'])
-def payment_webhook():
-    logger.info("Webhook received. Headers: %s", request.headers)
-    logger.info("Raw body: %s", request.data.decode('utf-8') if request.data else 'Empty body')
+
+async def payment_webhook(request):
+    logger.info("Webhook received")
     
     conn = None
     cursor = None
     
     try:
-        event_json = request.json
+        event_json = await request.json()
         payment = event_json['object']
         payment_id = payment['id']
         status = payment['status']
         metadata = payment.get('metadata', {})
         
-        # Проверяем наличие обязательных данных
-        if not all(key in metadata for key in ['chat_id', 'journal_id', 'quantity']):
-            logger.error("Missing required metadata fields")
-            return jsonify({"error": "Missing metadata"}), 400
-
-        conn = db_pool.get_connection()
-        cursor = conn.cursor(dictionary=True)
+        logger.info(f"Payment {payment_id}, status: {status}")
         
-        # Start transaction
-        cursor.execute("START TRANSACTION")
+        # Асинхронное подключение
+        conn = await async_db_pool.acquire()
+        cursor = await conn.cursor(aiomysql.DictCursor)
+        await conn.begin()
         
-        # Get payment data with lock
-        cursor.execute(
-            "SELECT * FROM payments WHERE payment_id = %s FOR UPDATE",
+        # КРИТИЧЕСКАЯ ЧАСТЬ: БЛОКИРУЕМ ТОЛЬКО ДЛЯ ПРОВЕРКИ УВЕДОМЛЕНИЯ
+        await cursor.execute(
+            """SELECT p.status, p.processed, p.notification_sent, p.amount, p.user_id, p.journal_id
+               FROM payments p 
+               WHERE p.payment_id = %s FOR UPDATE""",
             (payment_id,)
         )
-        payment_data = cursor.fetchone()
+        existing_payment = await cursor.fetchone()
         
-        if not payment_data:
-            conn.rollback()
-            return jsonify({"status": "payment not found"}), 404
+        if not existing_payment:
+            await conn.rollback()
+            await async_db_pool.release(conn)
+            logger.error(f"Payment {payment_id} not found in database")
+            return web.json_response({"status": "payment not found"}, status=404)
+        
+        # ЕСЛИ ПЛАТЕЖ УЖЕ ОБРАБОТАН - ВЫХОДИМ
+        if existing_payment.get('processed'):
+            await conn.rollback()
+            await async_db_pool.release(conn)
+            logger.info(f"Payment {payment_id} already processed - skipping")
+            return web.json_response({"status": "already_processed"}, status=200)
             
-        if status == 'succeeded':
-            # Complete the transaction - save order
-            cursor.execute(
-                """INSERT INTO orders (
-                    tg_user_id, fullname, city, postcode, 
-                    phone, email, product_id, quantity, 
-                    amount, payment_id, status, currency
-                ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'paid', 'RUB'
-                )""",
+        # ЕСЛИ УЖЕ В КОНЕЧНОМ СТАТУСЕ - ОБНОВЛЯЕМ processed И ВЫХОДИМ
+        if existing_payment['status'] in ['succeeded', 'canceled', 'failed']:
+            await cursor.execute(
+                "UPDATE payments SET processed = TRUE WHERE payment_id = %s",
+                (payment_id,)
+            )
+            await conn.commit()
+            await async_db_pool.release(conn)
+            logger.info(f"Payment {payment_id} already finalized - marking processed")
+            return web.json_response({"status": "already_finalized"}, status=200)
+        
+        # ПРОВЕРКА ОБЯЗАТЕЛЬНЫХ ДАННЫХ
+        if not all(key in metadata for key in ['chat_id', 'journal_id', 'quantity']):
+            await conn.rollback()
+            await async_db_pool.release(conn)
+            logger.error("Missing required metadata fields")
+            return web.json_response({"error": "Missing metadata"}, status=400)
+
+        # ПОЛУЧАЕМ ДАННЫЕ ИЗ METADATA
+        quantity = int(metadata['quantity'])
+        journal_id = int(metadata['journal_id'])
+        amount = float(metadata.get('amount', existing_payment['amount']))
+        user_id = existing_payment['user_id']
+        
+        # ОБРАБОТКА РАЗНЫХ СТАТУСОВ (БЕЗ БЛОКИРОВОК)
+        if status == 'waiting_for_capture':
+            logger.info(f"Payment {payment_id} waiting for capture - capturing...")
+            
+            try:
+                # Асинхронный захват платежа
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(
+                        f'https://api.yookassa.ru/v3/payments/{payment_id}/capture',
+                        json={"amount": {"value": f"{amount:.2f}", "currency": "RUB"}},
+                        auth=aiohttp.BasicAuth(YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY),
+                        headers={'Idempotence-Key': str(uuid.uuid4())}
+                    ) as response:
+                        capture_result = await response.json()
+                logger.info(f"Payment captured: {capture_result['status']}")
+                
+            except Exception as e:
+                # ВОЗВРАЩАЕМ ТОВАР ПРИ ОШИБКЕ ЗАХВАТА
+                await cursor.execute(
+                    "UPDATE journals SET quantity = quantity + %s WHERE id = %s",
+                    (quantity, journal_id)
+                )
+                await cursor.execute(
+                    "UPDATE payments SET status = 'failed', processed = TRUE WHERE payment_id = %s",
+                    (payment_id,)
+                )
+                await conn.commit()
+                await async_db_pool.release(conn)
+                logger.error(f"Capture failed: {str(e)}")
+                return web.json_response({"error": f"Capture failed: {str(e)}"}, status=500)
+            
+            # СОХРАНЯЕМ ЗАКАЗ
+            await cursor.execute(
+                """INSERT INTO orders (tg_user_id, fullname, city, postcode, 
+                    phone, email, product_id, quantity, amount, payment_id, status, currency)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'paid', 'RUB')""",
                 (
-                    payment_data['user_id'],
-                    metadata.get('fullname'),
-                    metadata.get('city'),
-                    metadata.get('postcode'),
-                    metadata.get('phone'),
-                    metadata.get('email'),
-                    payment_data['journal_id'],
-                    payment_data['quantity'],
-                    payment_data['amount'],
+                    user_id,
+                    metadata.get('fullname', ''),
+                    metadata.get('city', ''),
+                    metadata.get('postcode', ''),
+                    metadata.get('phone', ''),
+                    metadata.get('email', ''),
+                    journal_id,
+                    quantity,
+                    amount,
                     payment_id
                 )
             )
             
-            cursor.execute(
-                "UPDATE payments SET status = 'succeeded' WHERE payment_id = %s",
+            await cursor.execute(
+                "UPDATE payments SET status = 'succeeded', processed = TRUE WHERE payment_id = %s",
                 (payment_id,)
             )
             
-            # Обновляем количество журналов
-            cursor.execute(
-                "UPDATE journals SET quantity = quantity - %s WHERE id = %s",
-                (payment_data['quantity'], payment_data['journal_id'])
+        elif status == 'succeeded':
+            logger.info(f"Payment {payment_id} already succeeded")
+            
+            await cursor.execute(
+                """INSERT INTO orders (tg_user_id, fullname, city, postcode, 
+                    phone, email, product_id, quantity, amount, payment_id, status, currency)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'paid', 'RUB')""",
+                (
+                    user_id,
+                    metadata.get('fullname', ''),
+                    metadata.get('city', ''),
+                    metadata.get('postcode', ''),
+                    metadata.get('phone', ''),
+                    metadata.get('email', ''),
+                    journal_id,
+                    quantity,
+                    amount,
+                    payment_id
+                )
             )
             
-            # Send notification
-            send_telegram_notification(
-                chat_id=metadata['chat_id'],
-                payment_id=payment_id,
-                amount=payment_data['amount'],
-                product_id=payment_data['journal_id'],
-                customer_name=metadata.get('fullname'),
-                delivery_city=metadata.get('city'),
-                delivery_postcode=metadata.get('postcode')
+            await cursor.execute(
+                "UPDATE payments SET status = 'succeeded', processed = TRUE WHERE payment_id = %s",
+                (payment_id,)
             )
-                
+            
         elif status in ['canceled', 'failed']:
-            # Return journals to stock
-            cursor.execute(
+            logger.info(f"Payment {payment_id} {status} - returning goods")
+            
+            await cursor.execute(
                 "UPDATE journals SET quantity = quantity + %s WHERE id = %s",
-                (payment_data['quantity'], payment_data['journal_id'])
+                (quantity, journal_id)
             )
-            cursor.execute(
-                "UPDATE payments SET status = %s WHERE payment_id = %s",
+            
+            await cursor.execute(
+                "UPDATE payments SET status = %s, processed = TRUE WHERE payment_id = %s",
                 (status, payment_id)
             )
-            
-        conn.commit()
-        return jsonify({"status": "ok"}), 200
+        
+        # КРИТИЧЕСКАЯ ЧАСТЬ: ОТПРАВКА УВЕДОМЛЕНИЯ С БЛОКИРОВКОЙ
+        # Еще раз проверяем под блокировкой, не отправили ли уже
+        await cursor.execute(
+            "SELECT notification_sent FROM payments WHERE payment_id = %s FOR UPDATE",
+            (payment_id,)
+        )
+        notification_check = await cursor.fetchone()
+        
+        if not notification_check or not notification_check.get('notification_sent'):
+            # ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ТОЛЬКО ОДИН РАЗ
+            if status in ['succeeded', 'waiting_for_capture']:
+                success = await send_telegram_payment_async(
+                    chat_id=metadata['chat_id'],
+                    payment_id=payment_id,
+                    amount=amount,
+                    product_id=journal_id,
+                    customer_name=metadata.get('fullname'),
+                    delivery_city=metadata.get('city'),
+                    delivery_postcode=metadata.get('postcode')
+                )
+                
+                # 2. Отправляем на email через EmailService
+                email_success = await email_service.send_order_confirmation(
+                    payment_id=payment_id,
+                    amount=amount,
+                    product_id=journal_id,
+                    metadata=metadata
+                )
+                
+                if success or email_success:
+                    # Помечаем как отправленное
+                    await cursor.execute(
+                        "UPDATE payments SET notification_sent = TRUE WHERE payment_id = %s",
+                        (payment_id,)
+                    )
+        
+        await conn.commit()
+        await async_db_pool.release(conn)
+        logger.info(f"Payment {payment_id} processed successfully")
+        return web.json_response({"status": "ok"}, status=200)
         
     except Exception as e:
-        if conn: conn.rollback()
+        if conn: 
+            await conn.rollback()
+            await async_db_pool.release(conn)
         logger.error(f"Webhook error: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        return web.json_response({"error": str(e)}, status=500)
     finally:
-        if cursor: cursor.close()
-        if conn: conn.close()
-
-
-def send_telegram_notification(chat_id, payment_id, amount, product_id, customer_name, delivery_city, delivery_postcode):
-    """Отправляет уведомление о заказе в Telegram"""
-    try:
-        bot_token = os.getenv('BOT_TOKEN')
-        if not bot_token:
-            raise ValueError("BOT_TOKEN environment variable not set")
+        if cursor: 
+            await cursor.close()
             
-        message = f"""
-        🛍️ Новый оплаченный заказ
+
+
+def capture_payment(payment_id, amount):
+    """Подтверждает платеж в ЮKassa"""
+    try:
+        shop_id = os.getenv('YOOKASSA_SHOP_ID')
+        secret_key = os.getenv('YOOKASSA_SECRET_KEY')
         
-        🔹 Номер платежа: {payment_id}
-        🔹 Сумма: {amount:.2f} RUB
-        🔹 Товар: #{product_id}
+        if not shop_id or not secret_key:
+            raise ValueError("YKassa credentials not set")
+            
+        url = f"https://api.yookassa.ru/v3/payments/{payment_id}/capture"
         
-        Данные доставки:
-        👤 ФИО: {customer_name}
-        🏙️ Город: {delivery_city}
-        📮 Индекс: {delivery_postcode}
-        """
-        
-        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        params = {
-            'chat_id': int(chat_id),
-            'text': message,
-            'parse_mode': 'HTML'
+        auth = (shop_id, secret_key)
+        headers = {
+            'Idempotence-Key': str(uuid.uuid4()),
+            'Content-Type': 'application/json'
         }
         
-        response = requests.post(url, json=params, timeout=10)
+        # Обязательно указываем amount для подтверждения
+        payload = {
+            "amount": {
+                "value": f"{amount:.2f}",
+                "currency": "RUB"
+            }
+        }
+        
+        logger.info(f"Capturing payment {payment_id} with amount {amount}")
+        
+        response = requests.post(url, auth=auth, headers=headers, json=payload, timeout=10)
         response.raise_for_status()
         
-        logger.info(f"Notification sent to chat {chat_id}. Response: {response.text}")
+        result = response.json()
+        logger.info(f"Capture successful: {result['status']}")
+        return result
         
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Telegram API request failed: {str(e)}")
-    except Exception as e:
-        logger.error(f"Error sending Telegram notification: {str(e)}", exc_info=True)
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error capturing payment: {e.response.status_code} - {e.response.text}")
         raise
-        
-        
-
-
-
-
-# def send_telegram_notification(chat_id, payment_id, amount, product_id, customer_name, delivery_city, delivery_postcode):
-#     """Отправляет уведомление о заказе в Telegram"""
-#     try:
-#         message = f"""
-#         🛍️ Новый оплаченный заказ
-        
-#         🔹 Номер платежа: {payment_id}
-#         🔹 Сумма: {amount:.2f} RUB
-#         🔹 Товар: #{product_id}
-        
-#         Данные доставки:
-#         👤 ФИО: {customer_name}
-#         🏙️ Город: {delivery_city}
-#         📮 Индекс: {delivery_postcode}
-#         """
-        
-#         # Реализация отправки через Telegram Bot API
-#         bot_token = os.getenv('BOT_TOKEN')
-#         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-#         params = {
-#             'chat_id': chat_id,
-#             'text': message
-#         }
-        
-#         response = requests.post(url, json=params)
-#         response.raise_for_status()
-        
-#         logger.info(f"Notification sent to chat {chat_id}")
-        
-#     except Exception as e:
-#         logger.error(f"Failed to send Telegram notification: {str(e)}")
+    except Exception as e:
+        logger.error(f"Error capturing payment {payment_id}: {str(e)}")
+        raise
         
         
 
@@ -570,191 +558,101 @@ def update_payment_status(payment_id: str, status: str) -> int:
 #         logger.error(f"Database error checking payment: {e}")
 #         return None
 
-
-@app.route('/debug/payment/<payment_ref>', methods=['GET'])
-def debug_payment(payment_ref):
+    
+    
+async def debug_payment(request):
     try:
-        conn = db.get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            """SELECT * FROM payments 
-            WHERE return_id = %s OR payment_id LIKE %s""",
-            (f"pay_{payment_ref}", f"%{payment_ref}%")
+        # Получаем параметр из URL
+        payment_ref = request.match_info['payment_ref']
+        
+        # Ваша логика обработки
+        conn = await async_db_pool.acquire()
+        cursor = await conn.cursor(aiomysql.DictCursor)
+        
+        await cursor.execute(
+            "SELECT * FROM payments WHERE payment_id = %s",
+            (payment_ref,)
         )
-        payment = cursor.fetchone()
-        cursor.close()
-        conn.close()
+        payment = await cursor.fetchone()
         
-        return jsonify({
-            "exists": bool(payment),
-            "payment": payment
-        })
+        await async_db_pool.release(conn)
+        
+        if payment:
+            return web.json_response({
+                "success": True,
+                "payment": payment
+            })
+        else:
+            return web.json_response({
+                "success": False,
+                "error": "Payment not found"
+            }, status=404)
+            
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
-    
-    
-
-
-if __name__ == '__main__':
-    init_db()
-    try:
-        app.run(host='0.0.0.0', port=5005, debug=True)
-    finally:
-        if db_pool:
-            db_pool.close()
-
-
-
-
-# from flask import Flask, request, jsonify
-# from yookassa import Configuration, Payment
-
-# from mysql.connector import Error
-# from dotenv import load_dotenv
-
-# from aiohttp import web
-
-# from aiomysql import create_pool
-
-# from aiohttp_middlewares import cors_middleware
-
-# from flask_cors import CORS
-
-# import uuid
-# import logging
-# import mysql.connector
-# import os
-
-
-# load_dotenv()
-
-# app = Flask(__name__)
-# CORS(app)
-
-# # Настройка ЮKassa
-# Configuration.account_id = os.getenv('YOOKASSA_SHOP_ID')
-# Configuration.secret_key = os.getenv('YOOKASSA_SECRET_KEY')
-
-
-
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger(__name__)
-
-
-# app = web.Application(middlewares=[
-#     cors_middleware(allow_all=True)  # Разрешаем все CORS-запросы
-# ])
-
-
-# async def init_db(app):
-#     """Инициализация пула соединений с MySQL"""
-#     try:
-#         app['db_pool'] = await create_pool(
-#             unix_socket='/Applications/MAMP/tmp/mysql/mysql.sock',
-#             user='root',
-#             password='root',
-#             db='tg_bot',
-#             port=8889,
-#             minsize=1,
-#             maxsize=5
-#         )
-#         logger.info("✅ Пул соединений с MySQL инициализирован")
-#     except Exception as e:
-#         logger.error(f"❌ Ошибка подключения к MySQL: {e}")
-#         raise
-
-# async def save_order(db_pool, order_data):
-#     """Сохранение заказа в БД"""
-#     async with db_pool.acquire() as conn:
-#         async with conn.cursor() as cursor:
-#             await cursor.execute('''
-#                 INSERT INTO orders 
-#                 (tg_user_id, tg_username, city, postcode, phone, email, 
-#                  product_id, quantity, amount, payment_id, status, is_test)
-#                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-#             ''', (
-#                 order_data['user_id'],
-#                 order_data.get('username'),
-#                 order_data['city'],
-#                 order_data['postcode'],
-#                 order_data['phone'],
-#                 order_data['email'],
-#                 order_data['product_id'],
-#                 order_data['quantity'],
-#                 order_data['amount'],
-#                 order_data['payment_id'],
-#                 'pending',
-#                 order_data.get('is_test', False)
-#             ))
-#             await conn.commit()
-
-# async def update_order_status(db_pool, payment_id):
-#     """Обновление статуса заказа"""
-#     async with db_pool.acquire() as conn:
-#         async with conn.cursor() as cursor:
-#             await cursor.execute('''
-#                 UPDATE orders 
-#                 SET status = 'paid' 
-#                 WHERE payment_id = %s
-#             ''', (payment_id,))
-#             await conn.commit()
-
-
-
-# async def create_payment(request):
-#     try:
-#         data = await request.json()
+        logger.error(f"Debug error: {str(e)}")
+        return web.json_response({
+            "success": False,
+            "error": str(e)
+        }, status=500)
         
-#         # Тестовые данные вместо реального платежа
-#         test_payment = {
-#             "id": "test_payment_123",
-#             "confirmation": {
-#                 "confirmation_url": "https://example.com/success.html"
-#             },
-#             "test": True
-#         }
-
-#         return web.json_response({
-#             "payment_id": test_payment["id"],
-#             "confirmation_url": test_payment["confirmation"]["confirmation_url"],
-#             "is_test": True
-#         })
-        
-#     except Exception as e:
-#         return web.json_response({"error": str(e)}, status=500)
-    
     
 
-# async def payment_webhook(request):
-#     """Обработчик webhook от ЮKassa"""
-#     try:
-#         event_json = await request.json()
-#         if event_json['event'] == 'payment.succeeded':
-#             payment_id = event_json['object']['id']
-#             await update_order_status(request.app['db_pool'], payment_id)
-        
-#         return web.Response(status=200)
-#     except Exception as e:
-#         logger.error(f"Ошибка в webhook: {e}")
-#         return web.Response(status=400)
+app.router.add_post('/create_payment', create_payment)
+app.router.add_post('/payment_webhook', payment_webhook)
+app.router.add_get('/debug/payment/{payment_ref}', debug_payment)
 
-# async def init_app():
-#     """Инициализация приложения"""
-#     app = web.Application()
+
+
+# Middleware для обработки CORS
+@web.middleware
+async def cors_middleware(request, handler):
+    # Обрабатываем OPTIONS запросы
+    if request.method == 'OPTIONS':
+        response = web.Response()
+    else:
+        response = await handler(request)
     
-#     # Инициализация БД
-#     app.on_startup.append(init_db)
+    # Добавляем CORS headers
+    response.headers.update({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true'
+    })
+    return response
+
+# Создаем приложение с middleware
+app = web.Application(middlewares=[cors_middleware])
+
+
+# Явный обработчик для OPTIONS запросов
+async def options_handler(request):
+    return web.Response(status=200)
+
+
+async def main():
+    await init_async_db()
     
-#     # Маршруты
-#     app.router.add_post('/create_payment', create_payment)
-#     app.router.add_post('/payment_webhook', payment_webhook)
+    # Добавляем маршруты
+    app.router.add_post('/create_payment', create_payment)
+    app.router.add_post('/payment_webhook', payment_webhook)
+    app.router.add_get('/debug/payment/{payment_ref}', debug_payment)
     
-#     return app
+    # Добавляем OPTIONS handlers для всех маршрутов
+    app.router.add_options('/create_payment', options_handler)
+    app.router.add_options('/payment_webhook', options_handler)
+    app.router.add_options('/debug/payment/{payment_ref}', options_handler)
+    
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 5005)
+    await site.start()
+    
+    logger.info("🚀 Сервер запущен на http://0.0.0.0:5005")
+    await asyncio.Future()
+
+if __name__ == "__main__":
+    asyncio.run(main())
+            
 
 
-# app.router.add_post('/create_payment', create_payment)
-
-
-# if __name__ == '__main__':
-#     web.run_app(init_app(), port=5005)

@@ -5,6 +5,8 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+
+
 <script>
 // Ядерный вариант для Safari
 if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chrome')) {
@@ -28,6 +30,8 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
     });
 }
 </script>
+
+
 
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,6 +79,11 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
                                 Главная
                             </a>
                         </li>
+                        
+                        <!-- 🔥 ИЗМЕНЯЕМ УСЛОВИЕ: показываем для staff И обычных админов -->
+                        {% if user and (user.is_staff or user.is_admin) %}
+                        
+                        <!-- 🔥 Admin Management - ТОЛЬКО для staff -->
                         {% if user and user.is_staff %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button">
@@ -85,7 +94,10 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
                                 <li><a class="dropdown-item" href="/admin/list">List Admins</a></li>
                             </ul>
                         </li>
+                        {% endif %}
 
+                        <!-- 🔥 Journals Management - ТОЛЬКО для staff -->
+                        {% if user and user.is_staff %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="journalsDropdown" role="button">
                                 Journals Management
@@ -95,7 +107,9 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
                                 <li><a class="dropdown-item" href="/journal/add">Add Journal</a></li>
                             </ul>
                         </li>
+                        {% endif %}
 
+                        <!-- 🔥 Orders Management - для staff И обычных админов -->
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="ordersDropdown" role="button">
                                 Orders Management
@@ -107,6 +121,8 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
                             </ul>
                         </li>
 
+                        <!-- 🔥 Bot Management - ТОЛЬКО для staff -->
+                        {% if user and user.is_staff %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="botDropdown" role="button">
                                 Bot Management
@@ -116,6 +132,8 @@ if (navigator.userAgent.includes('Safari') && !navigator.userAgent.includes('Chr
                             </ul>
                         </li>
                         {% endif %}
+                        
+                        {% endif %}  <!-- Конец основного условия -->
                     </ul>
                 </div>
             </nav>
